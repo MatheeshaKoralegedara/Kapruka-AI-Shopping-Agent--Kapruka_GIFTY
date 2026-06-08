@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { ProductCarousel } from "./ProductCard";
 import { OrderConfirmation } from "./OrderConfirmation";
 import type { ChatMessage, Product } from "@/types";
@@ -14,6 +15,11 @@ interface ChatBubbleProps {
 export function ChatBubble({ message, isLatest }: ChatBubbleProps) {
   const addToCart = useSessionStore((s) => s.addToCart);
   const isAgent = message.role === "assistant";
+  const [clientTime, setClientTime] = useState<string | null>(null);
+
+  useEffect(() => {
+    setClientTime(formatTime(message.timestamp));
+  }, [message.timestamp]);
 
   const handleAddToCart = (product: Product) => {
     addToCart(product);
@@ -45,9 +51,11 @@ export function ChatBubble({ message, isLatest }: ChatBubbleProps) {
           <OrderConfirmation order={message.order} />
         )}
 
-        <span className="msg-time">
-          {formatTime(message.timestamp)}
-        </span>
+        {clientTime ? (
+          <span className="msg-time">
+            {clientTime}
+          </span>
+        ) : null}
       </div>
 
       <style>{`
