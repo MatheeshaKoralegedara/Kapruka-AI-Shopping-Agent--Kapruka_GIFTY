@@ -24,16 +24,11 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const sessionStore = useSessionStore();
+  const resetSession = useSessionStore((s) => s.resetSession);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
-
-  const handleCheckout = useCallback(() => {
-    const msg = "I'd like to checkout my cart";
-    setInput(msg);
-    setTimeout(() => sendMessage(msg), 100);
-  }, []);
 
   const sendMessage = useCallback(
     async (text?: string) => {
@@ -101,6 +96,20 @@ export default function ChatPage() {
     [input, isLoading, messages, sessionStore]
   );
 
+  const handleCheckout = useCallback(() => {
+    const msg = "I'd like to checkout my cart";
+    setInput(msg);
+    setTimeout(() => sendMessage(msg), 100);
+  }, [sendMessage]);
+
+  const handleNewChat = useCallback(() => {
+    resetSession();
+    setMessages([WELCOME_MESSAGE]);
+    setInput("");
+    setShowCartDetails(false);
+    inputRef.current?.focus();
+  }, [resetSession]);
+
   // Heuristic: auto-populate session fields from user messages
   function autoPopulateSession(userText: string, agentText: string) {
     // Detect if agent asked for address and user just provided one
@@ -141,90 +150,126 @@ export default function ChatPage() {
 
   return (
     <div className="shell">
-      {/* Header */}
-      <header className="header">
-        <div className="header-brand">
-          <div className="yamu-logo">G</div>
-          <div>
-            <h1 className="brand-name">GIFTY</h1>
-            <div className="brand-sub">
-              <span className="online-dot" aria-hidden="true" />
-              by Kapruka
+      <div className="layout-grid">
+        <aside className="sidebar">
+          <div className="sidebar-brand">
+            <div className="sidebar-logo">G</div>
+            <div>
+              <div className="sidebar-name">GIFTY</div>
+              <div className="sidebar-tag">Kapruka chat shopping</div>
             </div>
           </div>
-        </div>
-        <div className="header-right">
-          <span className="lang-badge">සිං EN த</span>
-        </div>
-      </header>
 
-      {/* Messages */}
-      <main className="chat-area" role="log" aria-label="Chat messages" aria-live="polite">
-        <div className="messages-inner">
-          {messages.map((msg, i) => (
-            <ChatBubble
-              key={msg.id}
-              message={msg}
-              isLatest={i === messages.length - 1}
+          <button type="button" className="new-chat-btn" onClick={handleNewChat}>
+            + New chat
+          </button>
+
+          <div className="sidebar-section">
+            <div className="sidebar-section-title">Starter prompts</div>
+            <div className="sidebar-prompts">
+              {quickReplies.map((qr) => (
+                <button
+                  key={qr}
+                  type="button"
+                  className="sidebar-prompt"
+                  onClick={() => sendMessage(qr)}
+                >
+                  {qr}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="sidebar-section">
+            <div className="sidebar-section-title">Why GIFTY?</div>
+            <p className="sidebar-note">
+              Discover gifts fast, shop with Sinhala/Tanglish support, and complete checkout in chat.
+            </p>
+          </div>
+        </aside>
+
+        <section className="chat-panel">
+          <header className="header">
+            <div className="header-brand">
+              <div className="yamu-logo">G</div>
+              <div>
+                <h1 className="brand-name">GIFTY</h1>
+                <div className="brand-sub">
+                  <span className="online-dot" aria-hidden="true" />
+                  by Kapruka
+                </div>
+              </div>
+            </div>
+            <div className="header-right">
+              <span className="lang-badge">සිං EN த</span>
+            </div>
+          </header>
+
+          <main className="chat-area" role="log" aria-label="Chat messages" aria-live="polite">
+            <div className="messages-inner">
+              {messages.map((msg, i) => (
+                <ChatBubble
+                  key={msg.id}
+                  message={msg}
+                  isLatest={i === messages.length - 1}
+                />
+              ))}
+
+              <AnimatePresence>
+                {isLoading && <TypingIndicator />}
+              </AnimatePresence>
+
+              <div ref={bottomRef} />
+            </div>
+          </main>
+
+          {messages.length <= 2 && !isLoading && (
+            <div className="quick-replies" role="group" aria-label="Quick reply suggestions">
+              {quickReplies.map((qr) => (
+                <button
+                  key={qr}
+                  onClick={() => sendMessage(qr)}
+                  className="quick-reply-btn"
+                >
+                  {qr}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="cart-area">
+            <CartPill
+              onCheckout={handleCheckout}
+              onReview={() => setShowCartDetails((open) => !open)}
             />
-          ))}
+            {showCartDetails && <CartDetails />}
+          </div>
 
-          <AnimatePresence>
-            {isLoading && <TypingIndicator />}
-          </AnimatePresence>
-
-          <div ref={bottomRef} />
-        </div>
-      </main>
-
-      {/* Quick replies (only show early in conversation) */}
-      {messages.length <= 2 && !isLoading && (
-        <div className="quick-replies" role="group" aria-label="Quick reply suggestions">
-          {quickReplies.map((qr) => (
+          <div className="input-area">
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Message GIFTY... (English, සිංහල, Tamil, Tanglish)"
+              className="chat-input"
+              aria-label="Type a message"
+              disabled={isLoading}
+              autoFocus
+            />
             <button
-              key={qr}
-              onClick={() => sendMessage(qr)}
-              className="quick-reply-btn"
+              onClick={() => sendMessage()}
+              className="send-btn"
+              disabled={!input.trim() || isLoading}
+              aria-label="Send message"
             >
-              {qr}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <line x1="12" y1="19" x2="12" y2="5" />
+                <polyline points="5 12 12 5 19 12" />
+              </svg>
             </button>
-          ))}
-        </div>
-      )}
-
-      {/* Cart pill */}
-      <div className="cart-area">
-        <CartPill
-          onCheckout={handleCheckout}
-          onReview={() => setShowCartDetails((open) => !open)}
-        />
-        {showCartDetails && <CartDetails />}
-      </div>
-
-      {/* Input */}
-      <div className="input-area">
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Message GIFTY... (English, සිංහල, Tamil, Tanglish)"
-          className="chat-input"
-          aria-label="Type a message"
-          disabled={isLoading}
-          autoFocus
-        />
-        <button
-          onClick={() => sendMessage()}
-          className="send-btn"
-          disabled={!input.trim() || isLoading}
-          aria-label="Send message"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <line x1="12" y1="19" x2="12" y2="5" />
-            <polyline points="5 12 12 5 19 12" />
-          </svg>
-        </button>
+          </div>
+        </section>
       </div>
 
       <style>{`
@@ -232,27 +277,153 @@ export default function ChatPage() {
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        body, html { height: 100%; overflow: hidden; background: #0a0a0a; }
+        body, html { height: 100%; overflow: hidden; background: #050305; }
 
         .shell {
-          height: 100dvh;
+          min-height: 100dvh;
+          display: flex;
+          align-items: stretch;
+          justify-content: center;
+          background: radial-gradient(circle at top, rgba(255, 107, 53, 0.08), transparent 30%), #0a050f;
+          font-family: 'DM Sans', sans-serif;
+          padding: 14px;
+        }
+
+        .layout-grid {
+          width: 100%;
+          max-width: 1280px;
+          display: grid;
+          grid-template-columns: 280px minmax(0, 1fr);
+          gap: 20px;
+          align-items: stretch;
+        }
+
+        .sidebar {
           display: flex;
           flex-direction: column;
-          background: #1f012c;
-          font-family: 'DM Sans', sans-serif;
-          max-width: 640px;
-          margin: 0 auto;
-          position: relative;
+          gap: 20px;
+          background: #0e0813;
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 28px;
+          padding: 22px;
+          min-height: calc(100dvh - 28px);
+          position: sticky;
+          top: 14px;
+        }
+
+        .sidebar-brand {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .sidebar-logo {
+          width: 44px;
+          height: 44px;
+          border-radius: 16px;
+          background: linear-gradient(135deg, #ff6b35, #ff9500);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #fff;
+          font-weight: 700;
+          font-size: 18px;
+        }
+
+        .sidebar-name {
+          color: #fff;
+          font-size: 18px;
+          font-weight: 700;
+        }
+
+        .sidebar-tag {
+          color: #a3a3a3;
+          font-size: 12px;
+          line-height: 1.4;
+        }
+
+        .new-chat-btn {
+          background: linear-gradient(135deg, #ff6b35, #ff9500);
+          color: #111;
+          padding: 14px 16px;
+          border: none;
+          border-radius: 18px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          box-shadow: 0 20px 40px rgba(255, 107, 53, 0.18);
+          transition: transform 0.15s ease, filter 0.15s ease;
+        }
+
+        .new-chat-btn:hover {
+          transform: translateY(-1px);
+          filter: brightness(1.03);
+        }
+
+        .sidebar-section {
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 22px;
+          padding: 16px;
+        }
+
+        .sidebar-section-title {
+          color: #f8f8f8;
+          font-size: 12px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          margin-bottom: 12px;
+        }
+
+        .sidebar-prompts {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .sidebar-prompt {
+          width: 100%;
+          background: #130a13;
+          color: #fff;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 16px;
+          padding: 12px 14px;
+          text-align: left;
+          cursor: pointer;
+          font-size: 13px;
+          transition: transform 0.15s ease, background 0.15s ease;
+        }
+
+        .sidebar-prompt:hover {
+          transform: translateX(3px);
+          background: rgba(255, 255, 255, 0.04);
+        }
+
+        .sidebar-note {
+          color: #b8b8b8;
+          font-size: 13px;
+          line-height: 1.6;
+        }
+
+        .chat-panel {
+          display: flex;
+          flex-direction: column;
+          height: calc(100dvh - 28px);
+          overflow: visible;
+          background: #09040c;
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 28px;
+          box-shadow: 0 30px 90px rgba(0, 0, 0, 0.35);
         }
 
         .header {
-          padding: 14px 18px 12px;
+          padding: 22px 24px 18px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-bottom: 0.5px solid #1e1e1e;
+          border-bottom: 0.5px solid rgba(255, 255, 255, 0.05);
           flex-shrink: 0;
-          background: #0a0a0a;
+          background: transparent;
         }
 
         .header-brand { display: flex; align-items: center; gap: 10px; }
@@ -313,7 +484,9 @@ export default function ChatPage() {
           display: flex;
           flex-direction: column;
           gap: 14px;
-          min-height: 100%;
+          min-height: 0;
+          flex: 1 1 auto;
+          overflow-y: auto;
         }
 
         .quick-replies {

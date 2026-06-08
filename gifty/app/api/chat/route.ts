@@ -1,11 +1,11 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { SYSTEM_PROMPT } from "@/lib/prompt";
-import { searchProducts, createOrder, quoteDelivery, trackOrder } from "@/lib/kapruka";
+import { searchProducts, createOrder } from "@/lib/kapruka";
 import { detectLanguage, getLanguageInstruction } from "@/lib/i18n";
 import type { ChatRequest, Product, Order } from "@/types";
 
-const client = new Anthropic();
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
 
 export async function POST(req: Request) {
   try {
@@ -39,15 +39,28 @@ ${contextParts.length ? contextParts.join("\n") : "New conversation — no cart 
 ## LANGUAGE INSTRUCTION
 ${langInstruction}`;
 
-    // First Claude call — get the plan
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1024,
-      system: systemWithContext,
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    // Gemini API call
+    const geminiRes = await fetch(GEMINI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemWithContext }] },
+        contents: messages.map((m) => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }],
+        })),
+        generationConfig: { maxOutputTokens: 1024 },
+      }),
     });
 
-    let text = response.content[0].type === "text" ? response.content[0].text : "";
+    const geminiData = await geminiRes.json();
+
+    if (!geminiRes.ok) {
+      throw new Error(geminiData?.error?.message || "Gemini API error");
+    }
+
+    let text: string =
+      geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
     // Extract product search intent
     const searchMatch = text.match(/\[SEARCH:\s*"([^"]+)"\]/i);
@@ -59,10 +72,8 @@ ${langInstruction}`;
     if (productsMatch) {
       try {
         const parsed = JSON.parse(productsMatch[1].trim());
-        // If these look like placeholder/fake products, do a real MCP search
         const hasFakeIds = parsed.some((p: Product) => !p.id || p.id === "REAL_ID");
         if (hasFakeIds || parsed.length === 0) {
-          // Search with context from conversation
           const query = extractSearchQuery(messages);
           const realProducts = await searchProducts(query);
           if (realProducts.length > 0) {
@@ -73,13 +84,12 @@ ${langInstruction}`;
           products = parsed;
         }
       } catch {
-        // malformed JSON block — do a live search
         const query = extractSearchQuery(messages);
         products = (await searchProducts(query)).slice(0, 5);
       }
     }
 
-    // If Claude signals intent to search (fallback detection)
+    // Fallback: if Claude signals intent to search
     if (!products && (
       text.toLowerCase().includes("let me search") ||
       text.toLowerCase().includes("searching") ||
@@ -154,14 +164,12 @@ ${langInstruction}`;
 }
 
 function extractSearchQuery(messages: { role: string; content: string }[]): string {
-  // Build a query from recent user messages
   const recentUser = messages
     .filter((m) => m.role === "user")
     .slice(-3)
     .map((m) => m.content)
     .join(" ");
 
-  // Common gift patterns
   if (/amma|mother|mom/i.test(recentUser)) return "birthday gift women flowers cake";
   if (/thaththaa|father|dad/i.test(recentUser)) return "gift men watch accessories";
   if (/girlfriend|wife|akka/i.test(recentUser)) return "romantic gift flowers chocolate";
@@ -171,7 +179,6 @@ function extractSearchQuery(messages: { role: string; content: string }[]): stri
   if (/chocolate|cake|food/i.test(recentUser)) return "cake chocolate sweets";
   if (/flower/i.test(recentUser)) return "flowers bouquet";
 
-  // Extract price range and use as context
   const priceMatch = recentUser.match(/(\d{3,6})\s*[-–]\s*(\d{3,6})/);
   if (priceMatch) return `gift ${priceMatch[0]}`;
 
