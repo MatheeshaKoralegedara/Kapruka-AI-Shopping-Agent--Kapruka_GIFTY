@@ -153,7 +153,9 @@ export default function ChatPage() {
       <div className="layout-grid">
         <aside className="sidebar">
           <div className="sidebar-brand">
-            <div className="sidebar-logo">G</div>
+            <div className="sidebar-logo">
+              <img src="/gifty-logo.png" alt="GIFTY" width="30" height="30" />
+            </div>
             <div>
               <div className="sidebar-name">GIFTY</div>
               <div className="sidebar-tag">Kapruka chat shopping</div>
@@ -161,7 +163,7 @@ export default function ChatPage() {
           </div>
 
           <button type="button" className="new-chat-btn" onClick={handleNewChat}>
-            + New chat
+            + New Conversation
           </button>
 
           <div className="sidebar-section">
@@ -191,7 +193,9 @@ export default function ChatPage() {
         <section className="chat-panel">
           <header className="header">
             <div className="header-brand">
-              <div className="yamu-logo">G</div>
+              <div className="yamu-logo">
+                <img src="/gifty-logo.png" alt="GIFTY" />
+              </div>
               <div>
                 <h1 className="brand-name">GIFTY</h1>
                 <div className="brand-sub">
@@ -318,7 +322,7 @@ export default function ChatPage() {
         }
 
         .sidebar-logo {
-          width: 44px;
+          width: 70px;
           height: 44px;
           border-radius: 16px;
           background: linear-gradient(135deg, #ff6b35, #ff9500);
@@ -328,6 +332,12 @@ export default function ChatPage() {
           color: #fff;
           font-weight: 700;
           font-size: 18px;
+        }
+        .sidebar-logo img {
+          width: 70px;
+          height: 44px;
+          border-radius: 12px;
+          object-fit: cover;
         }
 
         .sidebar-name {
@@ -343,12 +353,12 @@ export default function ChatPage() {
         }
 
         .new-chat-btn {
-          background: linear-gradient(135deg, #ff6b35, #ff9500);
-          color: #111;
+          background: linear-gradient(135deg, #880cdc, #bcb906);
+          color: #000000;
           padding: 14px 16px;
           border: none;
           border-radius: 18px;
-          font-size: 13px;
+          font-size: 15px;
           font-weight: 700;
           cursor: pointer;
           box-shadow: 0 20px 40px rgba(255, 107, 53, 0.18);
@@ -435,6 +445,12 @@ export default function ChatPage() {
           font-size: 18px; font-weight: 700; color: #fff;
           font-family: 'DM Serif Display', serif;
         }
+        .yamu-logo img {
+          width: 38px;
+          height: 38px;
+          border-radius: 50%;
+          object-fit: cover;
+        }
 
         .brand-name {
           color: #fff;
@@ -462,7 +478,7 @@ export default function ChatPage() {
 
         .lang-badge {
           font-size: 11px;
-          color: #555;
+          color: #565656;
           border: 0.5px solid #2a2a2a;
           padding: 4px 8px;
           border-radius: 20px;
@@ -473,7 +489,7 @@ export default function ChatPage() {
           flex: 1;
           overflow-y: auto;
           scrollbar-width: thin;
-          scrollbar-color: #2a2a2a transparent;
+          scrollbar-color: #302f2f transparent;
         }
         .chat-area::-webkit-scrollbar { width: 4px; }
         .chat-area::-webkit-scrollbar-track { background: transparent; }

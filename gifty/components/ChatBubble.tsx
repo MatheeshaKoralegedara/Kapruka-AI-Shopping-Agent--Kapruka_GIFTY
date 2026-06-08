@@ -33,7 +33,7 @@ export function ChatBubble({ message, isLatest }: ChatBubbleProps) {
       className={`msg-row ${isAgent ? "agent-row" : "user-row"}`}
     >
       {isAgent && (
-        <div className="agent-avatar">Y</div>
+        <div className="agent-avatar">G</div>
       )}
 
       <div className={`msg-content ${isAgent ? "agent-content" : "user-content"}`}>
@@ -166,7 +166,7 @@ export function TypingIndicator() {
       exit={{ opacity: 0, y: 8 }}
       className="typing-row"
     >
-      <div className="typing-avatar">Y</div>
+      <div className="typing-avatar">G</div>
       <div className="typing-bubble">
         <span className="dot" style={{ animationDelay: "0ms" }} />
         <span className="dot" style={{ animationDelay: "200ms" }} />

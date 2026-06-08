@@ -21,15 +21,17 @@ export function ProductCard({ product, onAdd, index = 0 }: ProductCardProps) {
     >
       <div className="product-img-wrap">
         {hasImage ? (
-          <img
-            src={product.image}
-            alt={product.name}
-            className="product-img"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-              (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
-            }}
-          />
+          <a href={product.url || "#"} target="_blank" rel="noopener noreferrer" className="product-link">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="product-img"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+                (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden");
+              }}
+            />
+          </a>
         ) : null}
         <div className={`product-img-fallback ${hasImage ? "hidden" : ""}`}>
           🛍️
@@ -37,7 +39,13 @@ export function ProductCard({ product, onAdd, index = 0 }: ProductCardProps) {
       </div>
 
       <div className="product-body">
-        <p className="product-name">{product.name}</p>
+        <p className="product-name">
+          {product.url ? (
+            <a href={product.url} target="_blank" rel="noopener noreferrer" className="product-name-link">{product.name}</a>
+          ) : (
+            product.name
+          )}
+        </p>
         {product.desc && (
           <p className="product-desc">{product.desc}</p>
         )}
@@ -111,6 +119,11 @@ export function ProductCard({ product, onAdd, index = 0 }: ProductCardProps) {
           overflow: hidden;
           font-family: 'DM Sans', sans-serif;
         }
+        .product-name-link {
+          color: #d4d4d4;
+          text-decoration: none;
+        }
+        .product-link { display: block; width: 100%; height: 100%; }
         .product-desc {
           color: #666;
           font-size: 10px;
