@@ -4,8 +4,39 @@ import { searchProducts, createOrder } from "@/lib/kapruka";
 import { detectLanguage, getLanguageInstruction } from "@/lib/i18n";
 import type { ChatRequest, Product, Order } from "@/types";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const GROQ_API_KEY = process.env.GROQ_API_KEY!;
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+async function callGroq(systemPrompt: string, messages: { role: string; content: string }[], retries = 3): Promise<string> {
+  const res = await fetch(GROQ_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      max_tokens: 1024,
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages.map((m) => ({ role: m.role, content: m.content })),
+      ],
+    }),
+  });
+
+  const data = await res.json();
+
+  if (res.status === 429 && retries > 0) {
+    const retryAfter = res.headers.get("retry-after");
+    const delay = retryAfter ? parseFloat(retryAfter) * 1000 : 2000;
+    await new Promise((r) => setTimeout(r, delay));
+    return callGroq(systemPrompt, messages, retries - 1);
+  }
+
+  if (!res.ok) throw new Error(data?.error?.message || "Groq API error");
+
+  return data.choices?.[0]?.message?.content ?? "";
+}
 
 export async function POST(req: Request) {
   try {
@@ -39,31 +70,8 @@ ${contextParts.length ? contextParts.join("\n") : "New conversation — no cart 
 ## LANGUAGE INSTRUCTION
 ${langInstruction}`;
 
-    // Gemini API call
-    const geminiRes = await fetch(GEMINI_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemWithContext }] },
-        contents: messages.map((m) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
-        })),
-        generationConfig: { maxOutputTokens: 1024 },
-      }),
-    });
+    let text = await callGroq(systemWithContext, messages);
 
-    const geminiData = await geminiRes.json();
-
-    if (!geminiRes.ok) {
-      throw new Error(geminiData?.error?.message || "Gemini API error");
-    }
-
-    let text: string =
-      geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-
-    // Extract product search intent
-    const searchMatch = text.match(/\[SEARCH:\s*"([^"]+)"\]/i);
     let products: Product[] | undefined;
     let order: Order | undefined;
 
@@ -89,11 +97,12 @@ ${langInstruction}`;
       }
     }
 
-    // Fallback: if Claude signals intent to search
+    // Fallback search detection
+    const searchMatch = text.match(/\[SEARCH:\s*"([^"]+)"\]/i);
     if (!products && (
       text.toLowerCase().includes("let me search") ||
       text.toLowerCase().includes("searching") ||
-      text.toLowerCase().includes("finding") ||
+      text.toLowerCase().includes("finding gifts") ||
       searchMatch
     )) {
       const query = searchMatch?.[1] || extractSearchQuery(messages);
@@ -111,7 +120,7 @@ ${langInstruction}`;
       } catch {}
     }
 
-    // Handle explicit checkout trigger
+    // Handle checkout trigger
     if (
       text.includes("[CREATE_ORDER]") &&
       sessionData?.cart?.length &&
