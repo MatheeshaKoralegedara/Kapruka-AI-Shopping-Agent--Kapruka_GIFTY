@@ -7,6 +7,11 @@ export const metadata: Metadata = {
   title: "GIFTY — Shop Kapruka by Chat",
   description:
     "Sri Lanka's smartest shopping assistant. Find gifts, compare products, and checkout in conversation. Supports English, සිංහල, Tamil, and Tanglish.",
+  icons: {
+  icon: "/tab.png",
+  shortcut: "/tab.png",
+  apple: "/tab.png",
+  },
   openGraph: {
     title: "GIFTY — Shop Kapruka by Chat",
     description: "Find the perfect gift. Shop in Sinhala, Tamil, Tanglish, or English.",
