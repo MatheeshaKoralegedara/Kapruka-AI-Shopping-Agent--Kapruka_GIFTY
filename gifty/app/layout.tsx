@@ -1,5 +1,7 @@
 
 import type { Metadata } from "next";
+import { Providers } from "@/components/ThemeProvider";
+import "./globals.css";
 
 export const metadata: Metadata = {
   title: "GIFTY — Shop Kapruka by Chat",
@@ -21,12 +23,15 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+        <meta name="theme-color" content="#d3c9c9" media="(prefers-color-scheme: light)" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
       </head>
-      <body style={{ margin: 0, background: "#0a0a0a", overflow: "hidden" }}>
-        {children}
+      <body className="bg-white dark:bg-slate-950 text-slate-950 dark:text-slate-50 transition-colors duration-300">
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );

@@ -5,6 +5,7 @@ import { AnimatePresence } from "framer-motion";
 import { ChatBubble, TypingIndicator } from "@/components/ChatBubble";
 import { CartPill } from "@/components/CartPill";
 import { CartDetails } from "@/components/CartDetails";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useSessionStore } from "@/lib/session";
 import type { ChatMessage, Product } from "@/types";
 
@@ -84,7 +85,7 @@ export default function ChatPage() {
         const errorMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: "Sorry, something went wrong 😅 Try again?",
+          content: "Sorry, something went wrong ☹️ Try again?",
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, errorMsg]);
@@ -157,7 +158,7 @@ export default function ChatPage() {
               <img src="/gifty-logo.png" alt="GIFTY" width="30" height="30" />
             </div>
             <div>
-              <div className="sidebar-name">GIFTY</div>
+              
               <div className="sidebar-tag">Kapruka chat shopping</div>
             </div>
           </div>
@@ -193,9 +194,7 @@ export default function ChatPage() {
         <section className="chat-panel">
           <header className="header">
             <div className="header-brand">
-              <div className="yamu-logo">
-                <img src="/gifty-logo.png" alt="GIFTY" />
-              </div>
+              
               <div>
                 <h1 className="brand-name">GIFTY</h1>
                 <div className="brand-sub">
@@ -205,7 +204,9 @@ export default function ChatPage() {
               </div>
             </div>
             <div className="header-right">
+              
               <span className="lang-badge">සිං EN த</span>
+              <ThemeToggle />
             </div>
           </header>
 
@@ -279,18 +280,43 @@ export default function ChatPage() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
 
+        :root {
+          --color-bg-primary: #fff;
+          --color-bg-secondary: #f5f5f5;
+          --color-bg-tertiary: #f0f0f0;
+          --color-text-primary: #000;
+          --color-text-secondary: #555;
+          --color-border: rgba(0, 0, 0, 0.1);
+          --color-accent: #ff6b35;
+        }
+
+        html.dark {
+          --color-bg-primary: #0a050f;
+          --color-bg-secondary: #0e0813;
+          --color-bg-tertiary: #161616;
+          --color-text-primary: #fff;
+          --color-text-secondary: #a3a3a3;
+          --color-border: rgba(255, 255, 255, 0.06);
+          --color-accent: #ff6b35;
+        }
+
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        body, html { height: 100%; overflow: hidden; background: #050305; }
+        body, html { height: 100%; overflow: hidden; }
 
         .shell {
           min-height: 100dvh;
           display: flex;
           align-items: stretch;
           justify-content: center;
-          background: radial-gradient(circle at top, rgba(255, 107, 53, 0.08), transparent 30%), #0a050f;
+          background: var(--color-bg-primary);
           font-family: 'DM Sans', sans-serif;
           padding: 14px;
+          transition: background-color 0.3s ease;
+        }
+
+        html.dark .shell {
+          background: radial-gradient(circle at top, rgba(255, 107, 53, 0.08), transparent 30%), var(--color-bg-primary);
         }
 
         .layout-grid {
@@ -306,13 +332,14 @@ export default function ChatPage() {
           display: flex;
           flex-direction: column;
           gap: 20px;
-          background: #0e0813;
-          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
           border-radius: 28px;
           padding: 22px;
           min-height: calc(100dvh - 28px);
           position: sticky;
           top: 14px;
+          transition: background-color 0.3s ease, border-color 0.3s ease;
         }
 
         .sidebar-brand {
@@ -322,7 +349,7 @@ export default function ChatPage() {
         }
 
         .sidebar-logo {
-          width: 70px;
+          width: 80px;
           height: 44px;
           border-radius: 16px;
           background: linear-gradient(135deg, #ff6b35, #ff9500);
@@ -334,26 +361,28 @@ export default function ChatPage() {
           font-size: 18px;
         }
         .sidebar-logo img {
-          width: 70px;
+          width: 80px;
           height: 44px;
           border-radius: 12px;
           object-fit: cover;
         }
 
         .sidebar-name {
-          color: #fff;
+          color: var(--color-text-primary);
           font-size: 18px;
           font-weight: 700;
+          transition: color 0.3s ease;
         }
 
         .sidebar-tag {
-          color: #a3a3a3;
+          color: var(--color-text-secondary);
           font-size: 12px;
-          line-height: 1.4;
+          line-height: 1.5;
+          transition: color 0.3s ease;
         }
 
         .new-chat-btn {
-          background: linear-gradient(135deg, #880cdc, #bcb906);
+          background: linear-gradient(135deg, #ffffff, #ffffff);
           color: #000000;
           padding: 14px 16px;
           border: none;
@@ -365,24 +394,34 @@ export default function ChatPage() {
           transition: transform 0.15s ease, filter 0.15s ease;
         }
 
+        html.dark .new-chat-btn {
+          background: linear-gradient(135deg, #ffffff, #ffffff);
+        }
+
         .new-chat-btn:hover {
           transform: translateY(-1px);
           filter: brightness(1.03);
         }
 
         .sidebar-section {
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: var(--color-bg-tertiary);
+          border: 1px solid var(--color-border);
           border-radius: 22px;
           padding: 16px;
+          transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        html.dark .sidebar-section {
+          background: rgba(255, 255, 255, 0.02);
         }
 
         .sidebar-section-title {
-          color: #f8f8f8;
+          color: var(--color-text-primary);
           font-size: 12px;
           letter-spacing: 0.08em;
           text-transform: uppercase;
           margin-bottom: 12px;
+          transition: color 0.3s ease;
         }
 
         .sidebar-prompts {
@@ -393,26 +432,28 @@ export default function ChatPage() {
 
         .sidebar-prompt {
           width: 100%;
-          background: #130a13;
-          color: #fff;
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: var(--color-bg-primary);
+          color: var(--color-text-primary);
+          border: 1px solid var(--color-border);
           border-radius: 16px;
           padding: 12px 14px;
           text-align: left;
           cursor: pointer;
           font-size: 13px;
-          transition: transform 0.15s ease, background 0.15s ease;
+          transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
         }
 
         .sidebar-prompt:hover {
           transform: translateX(3px);
-          background: rgba(255, 255, 255, 0.04);
+          background: var(--color-bg-tertiary);
+          border-color: rgba(255, 107, 53, 0.33);
         }
 
         .sidebar-note {
-          color: #b8b8b8;
+          color: var(--color-text-secondary);
           font-size: 13px;
           line-height: 1.6;
+          transition: color 0.3s ease;
         }
 
         .chat-panel {
@@ -420,10 +461,15 @@ export default function ChatPage() {
           flex-direction: column;
           height: calc(100dvh - 28px);
           overflow: visible;
-          background: #09040c;
-          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
           border-radius: 28px;
           box-shadow: 0 30px 90px rgba(0, 0, 0, 0.35);
+          transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+
+        html.light .chat-panel {
+          box-shadow: 0 30px 90px rgba(0, 0, 0, 0.1);
         }
 
         .header {
@@ -431,12 +477,14 @@ export default function ChatPage() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-bottom: 0.5px solid rgba(255, 255, 255, 0.05);
+          border-bottom: 0.5px solid var(--color-border);
           flex-shrink: 0;
           background: transparent;
+          transition: border-color 0.3s ease;
         }
 
         .header-brand { display: flex; align-items: center; gap: 10px; }
+        .header-right { display: flex; align-items: center; gap: 12px; }
 
         .yamu-logo {
           width: 38px; height: 38px; border-radius: 50%;
@@ -453,20 +501,22 @@ export default function ChatPage() {
         }
 
         .brand-name {
-          color: #fff;
+          color: var(--color-text-primary);
           font-size: 17px;
           font-weight: 500;
           font-family: 'DM Serif Display', serif;
           letter-spacing: 0.01em;
+          transition: color 0.3s ease;
         }
 
         .brand-sub {
           font-size: 11px;
-          color: #555;
+          color: var(--color-text-secondary);
           display: flex;
           align-items: center;
           gap: 5px;
           margin-top: 1px;
+          transition: color 0.3s ease;
         }
 
         .online-dot {
@@ -478,22 +528,24 @@ export default function ChatPage() {
 
         .lang-badge {
           font-size: 11px;
-          color: #565656;
-          border: 0.5px solid #2a2a2a;
+          color: var(--color-text-secondary);
+          border: 0.5px solid var(--color-border);
           padding: 4px 8px;
           border-radius: 20px;
           letter-spacing: 0.05em;
+          transition: color 0.3s ease, border-color 0.3s ease;
         }
 
         .chat-area {
           flex: 1;
           overflow-y: auto;
           scrollbar-width: thin;
-          scrollbar-color: #302f2f transparent;
+          scrollbar-color: var(--color-bg-tertiary) transparent;
+          transition: scrollbar-color 0.3s ease;
         }
         .chat-area::-webkit-scrollbar { width: 4px; }
         .chat-area::-webkit-scrollbar-track { background: transparent; }
-        .chat-area::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 4px; }
+        .chat-area::-webkit-scrollbar-thumb { background: var(--color-bg-tertiary); border-radius: 4px; transition: background 0.3s ease; }
 
         .messages-inner {
           padding: 16px 16px 8px;
@@ -517,16 +569,16 @@ export default function ChatPage() {
 
         .quick-reply-btn {
           flex-shrink: 0;
-          background: #161616;
-          border: 0.5px solid #2a2a2a;
-          color: #aaa;
+          background: var(--color-bg-tertiary);
+          border: 0.5px solid var(--color-border);
+          color: var(--color-text-secondary);
           font-size: 12px;
           font-family: 'DM Sans', sans-serif;
           padding: 7px 14px;
           border-radius: 20px;
           cursor: pointer;
           white-space: nowrap;
-          transition: border-color 0.15s, color 0.15s;
+          transition: border-color 0.15s, color 0.15s, background-color 0.15s;
         }
         .quick-reply-btn:hover { border-color: #ff6b3560; color: #ff9500; }
 
@@ -538,22 +590,23 @@ export default function ChatPage() {
           align-items: center;
           gap: 8px;
           flex-shrink: 0;
-          border-top: 0.5px solid #1a1a1a;
+          border-top: 0.5px solid var(--color-border);
+          transition: border-color 0.3s ease;
         }
 
         .chat-input {
           flex: 1;
-          background: #161616;
-          border: 0.5px solid #2a2a2a;
+          background: var(--color-bg-tertiary);
+          border: 0.5px solid var(--color-border);
           border-radius: 24px;
           padding: 10px 18px;
-          color: #e8e8e8;
+          color: var(--color-text-primary);
           font-size: 13.5px;
           font-family: 'DM Sans', sans-serif;
           outline: none;
-          transition: border-color 0.2s;
+          transition: border-color 0.2s, background-color 0.3s, color 0.3s;
         }
-        .chat-input::placeholder { color: #3a3a3a; }
+        .chat-input::placeholder { color: var(--color-text-secondary); opacity: 0.5; }
         .chat-input:focus { border-color: #ff6b3540; }
         .chat-input:disabled { opacity: 0.5; }
 
@@ -572,7 +625,57 @@ export default function ChatPage() {
         }
         .send-btn:hover:not(:disabled) { background: #e85c28; }
         .send-btn:active:not(:disabled) { transform: scale(0.93); }
-        .send-btn:disabled { background: #2a2a2a; color: #555; cursor: not-allowed; }
+        .send-btn:disabled { background: var(--color-bg-tertiary); color: var(--color-text-secondary); cursor: not-allowed; }
+
+        @media (max-width: 1024px) {
+          body, html { overflow: visible; }
+          .shell { padding: 12px; }
+          .layout-grid { grid-template-columns: 1fr; gap: 16px; }
+          .sidebar {
+            position: relative;
+            top: 0;
+            min-height: auto;
+            max-height: none;
+          }
+          .chat-panel {
+            height: auto;
+            min-height: calc(100dvh - 32px);
+          }
+          .header { flex-wrap: wrap; gap: 12px; }
+          .header-right { width: 100%; justify-content: space-between; }
+        }
+
+        @media (max-width: 640px) {
+          .shell {
+            padding: 10px;
+          }
+          .sidebar {
+            padding: 18px;
+            border-radius: 24px;
+          }
+          .new-chat-btn { width: 100%; }
+          .header {
+            padding: 18px 18px 14px;
+            justify-content: space-between;
+          }
+          .brand-name { font-size: 16px; }
+          .header-right { gap: 10px; }
+          .lang-badge { font-size: 10px; padding: 4px 7px; }
+          .chat-area { min-height: 50vh; }
+          .input-area {
+            padding: 10px 12px 14px;
+            gap: 8px;
+            flex-wrap: wrap;
+          }
+          .chat-input {
+            width: 100%;
+            min-width: 0;
+          }
+          .send-btn { width: 44px; height: 44px; }
+          .quick-replies { padding: 0 12px 10px; }
+          .sidebar-prompt { font-size: 12px; }
+          .messages-inner { gap: 12px; }
+        }
       `}</style>
     </div>
   );
