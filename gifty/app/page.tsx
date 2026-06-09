@@ -155,7 +155,7 @@ export default function ChatPage() {
         <aside className="sidebar">
           <div className="sidebar-brand">
             <div className="sidebar-logo">
-              <img src="/gifty-logo.png" alt="GIFTY" width="30" height="30" />
+              <img src="/logo2.png" alt="GIFTY" width="30" height="30" />
             </div>
             <div>
               
@@ -211,24 +211,53 @@ export default function ChatPage() {
           </header>
 
           <main className="chat-area" role="log" aria-label="Chat messages" aria-live="polite">
-            <div className="messages-inner">
-              {messages.map((msg, i) => (
-                <ChatBubble
-                  key={msg.id}
-                  message={msg}
-                  isLatest={i === messages.length - 1}
-                />
-              ))}
+            {messages.length === 1 && !isLoading ? (
+              <div className="hero">
+                <div className="hero-card">
+                  <div className="hero-icon" aria-hidden="true">
+                    <div className="hero-icon-img">
+                      <img src="/logo1.png" alt="GIFTY"  width="150" height="50" />
+                    </div>
+                  </div>
+                  <h1 className="hero-title">How can I help you shop today?</h1>
+                  <p className="hero-description">
+                    I'm GIFTY, your personal Kapruka shopping assistant. Ask me to find gifts, check prices, or browse categories.
+                  </p>
 
-              <AnimatePresence>
-                {isLoading && <TypingIndicator />}
-              </AnimatePresence>
+                  <div className="hero-prompts">
+                    {quickReplies.map((qr) => (
+                      <button
+                        key={qr}
+                        type="button"
+                        className="hero-prompt"
+                        onClick={() => sendMessage(qr)}
+                      >
+                        {qr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="messages-inner">
+                {messages.map((msg, i) => (
+                  <ChatBubble
+                    key={msg.id}
+                    message={msg}
+                    isLatest={i === messages.length - 1}
+                  />
+                ))}
 
-              <div ref={bottomRef} />
-            </div>
+                <AnimatePresence>
+                  {isLoading && <TypingIndicator />}
+                </AnimatePresence>
+
+                <div ref={bottomRef} />
+              </div>
+            )}
           </main>
 
-          {messages.length <= 2 && !isLoading && (
+          {messages.length > 1 && !isLoading && (
             <div className="quick-replies" role="group" aria-label="Quick reply suggestions">
               {quickReplies.map((qr) => (
                 <button
@@ -349,7 +378,7 @@ export default function ChatPage() {
         }
 
         .sidebar-logo {
-          width: 80px;
+          width: 90px;
           height: 44px;
           border-radius: 16px;
           background: linear-gradient(135deg, #ff6b35, #ff9500);
@@ -361,7 +390,7 @@ export default function ChatPage() {
           font-size: 18px;
         }
         .sidebar-logo img {
-          width: 80px;
+          width: 90px;
           height: 44px;
           border-radius: 12px;
           object-fit: cover;
@@ -504,7 +533,7 @@ export default function ChatPage() {
           color: var(--color-text-primary);
           font-size: 17px;
           font-weight: 500;
-          font-family: 'DM Serif Display', serif;
+          font-family: 'DM Sans', sans-serif;
           letter-spacing: 0.01em;
           transition: color 0.3s ease;
         }
@@ -538,14 +567,114 @@ export default function ChatPage() {
 
         .chat-area {
           flex: 1;
-          overflow-y: auto;
-          scrollbar-width: thin;
-          scrollbar-color: var(--color-bg-tertiary) transparent;
-          transition: scrollbar-color 0.3s ease;
+          overflow: hidden;
+          display: flex;
+          min-height: 0;
+          transition: background-color 0.3s ease;
         }
         .chat-area::-webkit-scrollbar { width: 4px; }
         .chat-area::-webkit-scrollbar-track { background: transparent; }
         .chat-area::-webkit-scrollbar-thumb { background: var(--color-bg-tertiary); border-radius: 4px; transition: background 0.3s ease; }
+
+        .hero {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 32px 24px;
+        }
+
+        .hero-card {
+          width: min(100%, 840px);
+          background: rgba(255, 255, 255, 0.9);
+          border: 1px solid rgba(0, 0, 0, 0.08);
+          border-radius: 36px;
+          padding: 44px 44px 34px;
+          text-align: center;
+          box-shadow: 0 35px 90px rgba(7, 12, 34, 0.16);
+          backdrop-filter: blur(16px);
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+        }
+
+        html.dark .hero-card {
+          background: rgba(15, 14, 25, 0.88);
+          border-color: rgba(255, 255, 255, 0.08);
+          box-shadow: 0 35px 90px rgba(0, 0, 0, 0.5);
+        }
+
+        .hero-icon {
+          width: 150px;
+          height: 49px;
+          margin: 0 auto;
+          border-radius: 24px;
+          display: grid;
+          place-items: center;
+          font-size: 32px;
+          color: #ffffff;
+          background: linear-gradient(135deg, #ff35eb, #2e0236);
+          box-shadow: 0 10px 30px rgb(97, 5, 130);
+        }
+          
+        .hero-icon-img {
+          width: 150px;
+          height: 50px;
+          
+          display: grid;
+          place-items: center;
+          object-fit: cover;
+        }
+
+        .hero-icon-img img {
+          border-radius: 24px;
+        }
+
+        .hero-title {
+          font-size: clamp(2rem, 3vw, 3rem);
+          line-height: 1.05;
+          color: var(--color-text-primary);
+          font-weight: 700;
+          margin: 0;
+        }
+
+        .hero-description {
+          max-width: 680px;
+          margin: 0 auto;
+          color: var(--color-text-secondary);
+          font-size: 1rem;
+          line-height: 1.8;
+        }
+
+        .hero-prompts {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 14px;
+          margin-top: 4px;
+        }
+
+        .hero-prompt {
+          border: 1px solid rgba(255, 107, 53, 0.2);
+          background: rgba(255, 255, 255, 0.9);
+          color: #111827;
+          padding: 18px 20px;
+          border-radius: 20px;
+          font-size: 0.96rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+        }
+
+        .hero-prompt:hover {
+          transform: translateY(-2px);
+          border-color: #ff6b35;
+          box-shadow: 0 12px 28px rgba(255, 107, 53, 0.12);
+        }
+
+        html.dark .hero-prompt {
+          background: rgba(255, 255, 255, 0.05);
+          color: #f8fafc;
+        }
 
         .messages-inner {
           padding: 16px 16px 8px;
