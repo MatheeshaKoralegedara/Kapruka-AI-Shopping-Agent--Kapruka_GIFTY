@@ -8,6 +8,7 @@ import { CartDetails } from "@/components/CartDetails";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useSessionStore } from "@/lib/session";
 import type { ChatMessage, Product } from "@/types";
+import { ChatHistoryPanel } from "@/components/ChatHistory";
 
 const WELCOME_MESSAGE: ChatMessage = {
   id: "welcome",
@@ -24,6 +25,7 @@ export default function ChatPage() {
   const [showCartDetails, setShowCartDetails] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const sessionStore = useSessionStore();
   const resetSession = useSessionStore((s) => s.resetSession);
 
@@ -111,6 +113,21 @@ export default function ChatPage() {
     inputRef.current?.focus();
   }, [resetSession]);
 
+  const handleOpenHistory = useCallback(() => {
+    setHistoryOpen(true);
+  }, []);
+
+  const handleCloseHistory = useCallback(() => {
+    setHistoryOpen(false);
+  }, []);
+
+  const handleLoadSession = useCallback((sessionMessages: ChatMessage[]) => {
+    setMessages(sessionMessages);
+    setShowCartDetails(false);
+    setInput("");
+    setHistoryOpen(false);
+  }, []);
+
   // Heuristic: auto-populate session fields from user messages
   function autoPopulateSession(userText: string, agentText: string) {
     // Detect if agent asked for address and user just provided one
@@ -165,6 +182,10 @@ export default function ChatPage() {
 
           <button type="button" className="new-chat-btn" onClick={handleNewChat}>
             + New Conversation
+          </button>
+
+          <button type="button" className="sidebar-prompt" onClick={handleOpenHistory}>
+            View chat history
           </button>
 
           <div className="sidebar-section">
@@ -242,7 +263,7 @@ export default function ChatPage() {
               <div className="messages-inner">
                 {messages.map((msg, i) => (
                   <ChatBubble
-                    key={msg.id}
+                    key={msg.id || `message-${i}`}
                     message={msg}
                     isLatest={i === messages.length - 1}
                   />
@@ -306,6 +327,14 @@ export default function ChatPage() {
         </section>
       </div>
 
+      <ChatHistoryPanel
+        currentMessages={messages}
+        onLoadSession={handleLoadSession}
+        onNewChat={handleNewChat}
+        isOpen={historyOpen}
+        onClose={handleCloseHistory}
+      />
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
 
@@ -360,7 +389,7 @@ export default function ChatPage() {
         .sidebar {
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 100px;
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: 28px;
@@ -419,7 +448,7 @@ export default function ChatPage() {
           font-size: 15px;
           font-weight: 700;
           cursor: pointer;
-          box-shadow: 0 20px 40px rgba(255, 107, 53, 0.18);
+          box-shadow: 0 20px 40px rgba(208, 53, 255, 0.18);
           transition: transform 0.15s ease, filter 0.15s ease;
         }
 
