@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="128" viewBox="0 0 320 128" role="img" aria-labelledby="title">
+  <title id="title">GIFTY logo</title>
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff6b35" />
+      <stop offset="100%" stop-color="#ff9500" />
+    </linearGradient>
+  </defs>
+  <rect width="320" height="128" rx="28" fill="#3f185d" />
+  <text x="24" y="86" font-family="DM Sans, Arial, sans-serif" font-size="72" font-weight="700" fill="#fff">gifty</text>
+  <g transform="translate(236 30)">
+    <rect x="0" y="0" width="32" height="16" rx="4" fill="#ffd200" />
+    <path d="M-12 0 L-22 -10 L-22 26 Z" fill="#ffd200" />
+    <path d="M44 0 L54 -10 L54 26 Z" fill="#ffd200" />
+  </g>
+</svg>

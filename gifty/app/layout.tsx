@@ -1,10 +1,17 @@
 
 import type { Metadata } from "next";
+import { Providers } from "@/components/ThemeProvider";
+import "./globals.css";
 
 export const metadata: Metadata = {
   title: "GIFTY — Shop Kapruka by Chat",
   description:
     "Sri Lanka's smartest shopping assistant. Find gifts, compare products, and checkout in conversation. Supports English, සිංහල, Tamil, and Tanglish.",
+  icons: {
+  icon: "/tab2.png",
+  shortcut: "/tab2.png",
+  apple: "/tab2.png",
+  },
   openGraph: {
     title: "GIFTY — Shop Kapruka by Chat",
     description: "Find the perfect gift. Shop in Sinhala, Tamil, Tanglish, or English.",
@@ -18,15 +25,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+        <meta name="theme-color" content="#d3c9c9" media="(prefers-color-scheme: light)" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
       </head>
-      <body style={{ margin: 0, background: "#0a0a0a", overflow: "hidden" }}>
-        {children}
+      <body className="bg-white dark:bg-slate-950 text-slate-950 dark:text-slate-50 transition-colors duration-300">
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );

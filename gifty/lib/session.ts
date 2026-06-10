@@ -6,6 +6,7 @@ interface SessionStore extends SessionData {
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
+  resetSession: () => void;
   setAddress: (address: string) => void;
   setRecipientName: (name: string) => void;
   setRecipientPhone: (phone: string) => void;
@@ -59,6 +60,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   },
 
   clearCart: () => set({ cart: [] }),
+  resetSession: () =>
+    set({
+      cart: [],
+      address: undefined,
+      recipientName: undefined,
+      recipientPhone: undefined,
+      deliveryDate: undefined,
+      deliveryTime: undefined,
+      giftNote: undefined,
+    }),
 
   setAddress: (address) => set({ address }),
   setRecipientName: (recipientName) => set({ recipientName }),
