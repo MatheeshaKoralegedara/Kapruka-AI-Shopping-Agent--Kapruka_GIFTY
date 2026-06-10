@@ -360,10 +360,10 @@ export default function ChatPage() {
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        body, html { height: 100%; overflow: hidden; }
+        body, html { min-height: 100%; overflow: auto; }
 
         .shell {
-          min-height: 100dvh;
+          min-height: 100vh;
           display: flex;
           align-items: stretch;
           justify-content: center;
