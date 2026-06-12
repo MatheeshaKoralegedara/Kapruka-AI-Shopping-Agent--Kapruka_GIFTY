@@ -379,31 +379,31 @@ export default function ChatPage() {
 
         .layout-grid {
           width: 100%;
-          max-width: 1280px;
+          max-width: 1360px;
           display: grid;
-          grid-template-columns: 280px minmax(0, 1fr);
-          gap: 20px;
+          grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+          gap: 24px;
           align-items: stretch;
         }
 
         .sidebar {
           display: flex;
           flex-direction: column;
-          gap: 100px;
+          gap: 28px;
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
-          border-radius: 28px;
-          padding: 22px;
-          min-height: calc(100dvh - 28px);
+          border-radius: 30px;
+          padding: 26px;
+          min-height: calc(100dvh - 34px);
           position: sticky;
-          top: 14px;
+          top: 16px;
           transition: background-color 0.3s ease, border-color 0.3s ease;
         }
 
         .sidebar-brand {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 14px;
         }
 
         .sidebar-logo {
@@ -517,17 +517,17 @@ export default function ChatPage() {
         .chat-panel {
           display: flex;
           flex-direction: column;
-          height: calc(100dvh - 28px);
-          overflow: visible;
+          height: calc(100dvh - 32px);
+          overflow: hidden;
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
-          border-radius: 28px;
-          box-shadow: 0 30px 90px rgba(0, 0, 0, 0.35);
+          border-radius: 30px;
+          box-shadow: 0 34px 85px rgba(0, 0, 0, 0.14);
           transition: background-color 0.3s ease, border-color 0.3s ease;
         }
 
         html.light .chat-panel {
-          box-shadow: 0 30px 90px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 34px 85px rgba(0, 0, 0, 0.1);
         }
 
         .header {
@@ -610,7 +610,7 @@ export default function ChatPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 32px 24px;
+          padding: 34px 24px;
         }
 
         .hero-card {
@@ -706,13 +706,15 @@ export default function ChatPage() {
         }
 
         .messages-inner {
-          padding: 16px 16px 8px;
+          padding: 18px 20px 10px;
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 16px;
           min-height: 0;
           flex: 1 1 auto;
           overflow-y: auto;
+          scrollbar-width: thin;
+          scrollbar-color: var(--color-border) transparent;
         }
 
         .quick-replies {
@@ -743,12 +745,16 @@ export default function ChatPage() {
         .cart-area { padding: 0 14px; flex-shrink: 0; }
 
         .input-area {
-          padding: 10px 14px 16px;
+          padding: 14px 16px 16px;
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           flex-shrink: 0;
           border-top: 0.5px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          position: sticky;
+          bottom: 0;
+          z-index: 2;
           transition: border-color 0.3s ease;
         }
 
