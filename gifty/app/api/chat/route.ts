@@ -170,6 +170,15 @@ function extractSearchQuery(messages: { role: string; content: string }[]): stri
     .map((m) => m.content)
     .join(" ");
 
+  if (/அம்மா|amma|mother|mom/i.test(recentUser)) return "birthday gift women flowers cake";
+  if (/அப்பா|appa|father|dad/i.test(recentUser)) return "gift men watch accessories";
+  if (/மனைவி|காதலி|wife|girlfriend/i.test(recentUser)) return "romantic gift flowers chocolate";
+  if (/பிறந்தநாள்|birthday/i.test(recentUser)) return "birthday gift cake flowers";
+  if (/திருமணம்|wedding/i.test(recentUser)) return "wedding gift home accessories";
+  if (/குழந்தை|baby|child|kid/i.test(recentUser)) return "baby gift toys";
+  if (/சாக்லேட்|கேக்|chocolate|cake|food/i.test(recentUser)) return "cake chocolate sweets";
+  if (/மலர்|பூ|flower/i.test(recentUser)) return "flowers bouquet";
+
   if (/amma|mother|mom/i.test(recentUser)) return "birthday gift women flowers cake";
   if (/thaththaa|father|dad/i.test(recentUser)) return "gift men watch accessories";
   if (/girlfriend|wife|akka/i.test(recentUser)) return "romantic gift flowers chocolate";
