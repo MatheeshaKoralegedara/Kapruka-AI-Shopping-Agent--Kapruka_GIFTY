@@ -162,6 +162,7 @@ export default function ChatPage() {
   const quickReplies = [
     "Gift for amma 🎂",
     "Flowers delivery",
+    "அம்மாவுக்கு gift",
     "Romantic gift 💕",
     "Under Rs. 3000",
   ];
@@ -207,7 +208,7 @@ export default function ChatPage() {
           <div className="sidebar-section">
             <div className="sidebar-section-title">Why GIFTY?</div>
             <p className="sidebar-note">
-              Discover gifts fast, shop with Sinhala/Tanglish support, and complete checkout in chat.
+              Discover gifts fast, shop with Sinhala, English, Tamil, Tanglish support, and complete checkout in chat.
             </p>
           </div>
         </aside>
