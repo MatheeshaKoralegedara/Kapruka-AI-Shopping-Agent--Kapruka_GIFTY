@@ -7,7 +7,7 @@ import { CartPill } from "@/components/CartPill";
 import { CartDetails } from "@/components/CartDetails";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useSessionStore } from "@/lib/session";
-import type { ChatMessage, Product } from "@/types";
+import type { ChatMessage } from "@/types";
 import { ChatHistoryPanel } from "@/components/ChatHistory";
 
 const WELCOME_MESSAGE: ChatMessage = {
@@ -25,6 +25,7 @@ export default function ChatPage() {
   const [showCartDetails, setShowCartDetails] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const sessionStore = useSessionStore();
   const resetSession = useSessionStore((s) => s.resetSession);
@@ -33,10 +34,36 @@ export default function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
+  const autoPopulateSession = useCallback(
+    (userText: string, agentText: string) => {
+      if (
+        agentText.toLowerCase().includes("address") ||
+        agentText.toLowerCase().includes("deliver")
+      ) {
+        if (
+          userText.match(/\d+.*road|street|lane|place|avenue|colombo|kandy|galle/i) ||
+          userText.length > 15
+        ) {
+          sessionStore.setAddress(userText);
+        }
+      }
+
+      const phoneMatch = userText.match(/0[17]\d{8}/);
+      if (phoneMatch) sessionStore.setRecipientPhone(phoneMatch[0]);
+
+      if (/morning|before 12|am\b/i.test(userText)) sessionStore.setDeliveryTime("morning");
+      if (/evening|afternoon|after 12|pm\b/i.test(userText)) sessionStore.setDeliveryTime("afternoon");
+    },
+    [sessionStore]
+  );
+
   const sendMessage = useCallback(
-    async (text?: string) => {
-      const content = (text || input).trim();
-      if (!content || isLoading) return;
+    async (
+      text?: string,
+      imageData?: { base64: string; mimeType: string; preview: string }
+    ) => {
+      const content = (text || input || (imageData ? "Find products like this image" : "")).trim();
+      if ((!content && !imageData) || isLoading) return;
 
       setInput("");
 
@@ -44,6 +71,7 @@ export default function ChatPage() {
         id: Date.now().toString(),
         role: "user",
         content,
+        imagePreview: imageData?.preview,
         timestamp: new Date(),
       };
 
@@ -62,6 +90,9 @@ export default function ChatPage() {
           body: JSON.stringify({
             messages: historyMessages,
             sessionData: sessionStore.toSessionData(),
+            imageData: imageData
+              ? { base64: imageData.base64, mimeType: imageData.mimeType }
+              : undefined,
           }),
         });
 
@@ -83,7 +114,7 @@ export default function ChatPage() {
         };
 
         setMessages((prev) => [...prev, assistantMsg]);
-      } catch (err) {
+      } catch {
         const errorMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
@@ -96,7 +127,27 @@ export default function ChatPage() {
         inputRef.current?.focus();
       }
     },
-    [input, isLoading, messages, sessionStore]
+    [autoPopulateSession, input, isLoading, messages, sessionStore]
+  );
+
+  const handleImageUpload = useCallback(
+    (file: File) => {
+      if (!file.type.startsWith("image/")) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const preview = String(reader.result || "");
+        const base64 = preview.split(",")[1];
+        if (!base64) return;
+        sendMessage(input, {
+          base64,
+          mimeType: file.type,
+          preview,
+        });
+      };
+      reader.readAsDataURL(file);
+    },
+    [input, sendMessage]
   );
 
   const handleCheckout = useCallback(() => {
@@ -127,30 +178,6 @@ export default function ChatPage() {
     setInput("");
     setHistoryOpen(false);
   }, []);
-
-  // Heuristic: auto-populate session fields from user messages
-  function autoPopulateSession(userText: string, agentText: string) {
-    // Detect if agent asked for address and user just provided one
-    if (
-      agentText.toLowerCase().includes("address") ||
-      agentText.toLowerCase().includes("deliver")
-    ) {
-      if (
-        userText.match(/\d+.*road|street|lane|place|avenue|colombo|kandy|galle/i) ||
-        userText.length > 15
-      ) {
-        sessionStore.setAddress(userText);
-      }
-    }
-
-    // Phone number detection
-    const phoneMatch = userText.match(/0[17]\d{8}/);
-    if (phoneMatch) sessionStore.setRecipientPhone(phoneMatch[0]);
-
-    // Morning/evening delivery
-    if (/morning|before 12|am\b/i.test(userText)) sessionStore.setDeliveryTime("morning");
-    if (/evening|afternoon|after 12|pm\b/i.test(userText)) sessionStore.setDeliveryTime("afternoon");
-  }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -243,7 +270,7 @@ export default function ChatPage() {
                   </div>
                   <h1 className="hero-title">How can I help you shop today?</h1>
                   <p className="hero-description">
-                    I'm GIFTY, your personal Kapruka shopping assistant. Ask me to find gifts, check prices, or browse categories.
+                    I&apos;m GIFTY, your personal Kapruka shopping assistant. Ask me to find gifts, check prices, or browse categories.
                   </p>
 
                   <div className="hero-prompts">
@@ -302,6 +329,33 @@ export default function ChatPage() {
           </div>
 
           <div className="input-area">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="image-input"
+              aria-label="Upload product image"
+              disabled={isLoading}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImageUpload(file);
+                e.currentTarget.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="image-btn"
+              disabled={isLoading}
+              aria-label="Upload product image"
+              title="Upload product image"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <circle cx="8.5" cy="10.5" r="1.5" />
+                <path d="M21 15l-5-5L5 19" />
+              </svg>
+            </button>
             <input
               ref={inputRef}
               value={input}
@@ -758,6 +812,27 @@ export default function ChatPage() {
           z-index: 2;
           transition: border-color 0.3s ease;
         }
+
+        .image-input {
+          display: none;
+        }
+
+        .image-btn {
+          width: 38px; height: 38px;
+          border-radius: 50%;
+          background: var(--color-bg-tertiary);
+          border: 0.5px solid var(--color-border);
+          cursor: pointer;
+          color: var(--color-text-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: border-color 0.15s, transform 0.1s, color 0.15s;
+        }
+        .image-btn:hover:not(:disabled) { border-color: #ff6b3560; color: #ff6b35; }
+        .image-btn:active:not(:disabled) { transform: scale(0.93); }
+        .image-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .chat-input {
           flex: 1;
