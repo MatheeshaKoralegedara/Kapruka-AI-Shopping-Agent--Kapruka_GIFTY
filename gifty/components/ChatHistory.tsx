@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ChatMessage } from "@/types";
 
 interface ChatSession {
@@ -24,29 +24,27 @@ const STORAGE_KEY = "yamu_chat_history";
 const MAX_SESSIONS = 20;
 
 export function useChatHistory() {
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
-
-  useEffect(() => {
+  const [sessions, setSessions] = useState<ChatSession[]>(() => {
+    if (typeof window === "undefined") return [];
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        setSessions(
-          parsed.map((s: ChatSession, index: number) => ({
-            ...s,
-            id: s.id || `history-${Date.now()}-${index}`,
-            timestamp: new Date(s.timestamp),
-            messages: s.messages.map((m: ChatMessage) => ({
-              ...m,
-              timestamp: new Date(m.timestamp),
-            })),
-          }))
-        );
+        return parsed.map((s: ChatSession, index: number) => ({
+          ...s,
+          id: s.id || `history-${Date.now()}-${index}`,
+          timestamp: new Date(s.timestamp),
+          messages: s.messages.map((m: ChatMessage) => ({
+            ...m,
+            timestamp: new Date(m.timestamp),
+          })),
+        }));
       }
     } catch {}
-  }, []);
+    return [];
+  });
 
-  const saveSession = (messages: ChatMessage[]) => {
+  const saveSession = useCallback((messages: ChatMessage[]) => {
     if (messages.length < 2) return; // don't save empty sessions
 
     const userMessages = messages.filter((m) => m.role === "user");
@@ -79,9 +77,9 @@ export function useChatHistory() {
       } catch {}
       return updated;
     });
-  };
+  }, []);
 
-  const deleteSession = (id: string) => {
+  const deleteSession = useCallback((id: string) => {
     setSessions((prev) => {
       const updated = prev.filter((s) => s.id !== id);
       try {
@@ -89,14 +87,14 @@ export function useChatHistory() {
       } catch {}
       return updated;
     });
-  };
+  }, []);
 
-  const clearAll = () => {
+  const clearAll = useCallback(() => {
     setSessions([]);
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {}
-  };
+  }, []);
 
   return { sessions, saveSession, deleteSession, clearAll };
 }
@@ -115,7 +113,7 @@ export function ChatHistoryPanel({
     if (isOpen && currentMessages.length > 1) {
       saveSession(currentMessages);
     }
-  }, [isOpen]);
+  }, [currentMessages, isOpen, saveSession]);
 
   const formatTime = (date: Date) => {
     const now = new Date();

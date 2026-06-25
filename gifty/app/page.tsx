@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { useSessionStore } from "@/lib/session";
 import type { ChatMessage } from "@/types";
 import { ChatHistoryPanel } from "@/components/ChatHistory";
+import { VoiceInputButton } from "@/components/VoiceInput";
 
 const WELCOME_MESSAGE: ChatMessage = {
   id: "welcome",
@@ -27,6 +28,7 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [lang] = useState<"en" | "si" | "ta" | "tanglish">("en");
   const sessionStore = useSessionStore();
   const resetSession = useSessionStore((s) => s.resetSession);
 
@@ -185,6 +187,13 @@ export default function ChatPage() {
       sendMessage();
     }
   };
+
+  const handleVoiceTranscript = useCallback((text: string) =>
+  {
+    setInput((prev) => (prev ? prev + " " + text : text));
+    setTimeout(() => sendMessage(text), 600);
+
+  },[sendMessage]);
 
   const quickReplies = [
     "Gift for amma 🎂",
@@ -367,17 +376,25 @@ export default function ChatPage() {
               disabled={isLoading}
               autoFocus
             />
-            <button
-              onClick={() => sendMessage()}
-              className="send-btn"
-              disabled={!input.trim() || isLoading}
-              aria-label="Send message"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <line x1="12" y1="19" x2="12" y2="5" />
-                <polyline points="5 12 12 5 19 12" />
-              </svg>
-            </button>
+            {input.trim() ? (
+              <button
+                onClick={() => sendMessage()}
+                className="send-btn"
+                disabled={isLoading}
+                aria-label="Send message"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="12" y1="19" x2="12" y2="5" />
+                  <polyline points="5 12 12 5 19 12" />
+                </svg>
+              </button>
+            ) : (
+              <VoiceInputButton
+                onTranscript={handleVoiceTranscript}
+                disabled={isLoading}
+                language={lang}
+              />
+            )}
           </div>
         </section>
       </div>

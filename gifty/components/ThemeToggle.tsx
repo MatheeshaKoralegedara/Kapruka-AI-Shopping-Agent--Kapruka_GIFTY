@@ -1,16 +1,20 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+function subscribeToHydration() {
+  return () => {};
+}
 
 export function ThemeToggle() {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false
+  );
   // resolvedTheme correctly evaluates 'system' to either 'light' or 'dark'
   const { resolvedTheme, setTheme } = useTheme();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Skeleton placeholder to prevent layout shift during hydration
   if (!mounted) {
