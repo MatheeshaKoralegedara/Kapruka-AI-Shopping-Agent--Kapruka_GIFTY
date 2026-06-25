@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
 import { ProductCarousel } from "./ProductCard";
 import { OrderConfirmation } from "./OrderConfirmation";
 import type { ChatMessage, Product } from "@/types";
@@ -12,14 +11,10 @@ interface ChatBubbleProps {
   isLatest?: boolean;
 }
 
-export function ChatBubble({ message, isLatest }: ChatBubbleProps) {
+export function ChatBubble({ message }: ChatBubbleProps) {
   const addToCart = useSessionStore((s) => s.addToCart);
   const isAgent = message.role === "assistant";
-  const [clientTime, setClientTime] = useState<string | null>(null);
-
-  useEffect(() => {
-    setClientTime(formatTime(message.timestamp));
-  }, [message.timestamp]);
+  const clientTime = formatTime(message.timestamp);
 
   const handleAddToCart = (product: Product) => {
     addToCart(product);
@@ -37,6 +32,14 @@ export function ChatBubble({ message, isLatest }: ChatBubbleProps) {
       )}
 
       <div className={`msg-content ${isAgent ? "agent-content" : "user-content"}`}>
+        {message.imagePreview && (
+          <img
+            src={message.imagePreview}
+            alt="Uploaded product"
+            className="msg-image"
+          />
+        )}
+
         {message.content && (
           <div className={`bubble ${isAgent ? "agent-bubble" : "user-bubble"}`}>
             <MessageText text={message.content} />
@@ -100,6 +103,14 @@ export function ChatBubble({ message, isLatest }: ChatBubbleProps) {
           line-height: 1.55;
           font-family: 'DM Sans', sans-serif;
           word-break: break-word;
+        }
+        .msg-image {
+          width: min(220px, 64vw);
+          max-height: 220px;
+          object-fit: cover;
+          border-radius: 16px 4px 16px 16px;
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
         }
         .agent-bubble {
           background: #1a1a1a;

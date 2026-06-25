@@ -33,6 +33,7 @@ export interface ChatMessage {
   id: string;
   role: MessageRole;
   content: string;
+  imagePreview?: string;
   products?: Product[];
   order?: Order;
   deliveryQuote?: DeliveryQuote;
@@ -53,6 +54,10 @@ export interface SessionData {
 export interface ChatRequest {
   messages: { role: MessageRole; content: string }[];
   sessionData: SessionData;
+  imageData?: {
+    base64: string;
+    mimeType: string;
+  };
 }
 
 export interface ChatResponse {

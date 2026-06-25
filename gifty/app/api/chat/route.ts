@@ -7,10 +7,21 @@ import type { ChatRequest, Product, Order } from "@/types";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
+type GeminiResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{ text?: string }>;
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+};
+
 export async function POST(req: Request) {
   try {
     const body: ChatRequest = await req.json();
-    const { messages, sessionData } = body;
+    const { messages, sessionData, imageData } = body;
 
     if (!messages?.length) {
       return NextResponse.json({ error: "No messages provided" }, { status: 400 });
@@ -38,6 +49,25 @@ ${contextParts.length ? contextParts.join("\n") : "New conversation — no cart 
 
 ## LANGUAGE INSTRUCTION
 ${langInstruction}`;
+
+    if (imageData?.base64 && imageData.mimeType) {
+      const imageSearchQuery = await describeImageForSearch(
+        imageData,
+        lastUserMsg?.content || ""
+      );
+      const products = (await searchProducts(imageSearchQuery)).slice(0, 5);
+      const text = await generateImageSearchReply(
+        imageSearchQuery,
+        products,
+        langInstruction
+      );
+
+      return NextResponse.json({
+        text,
+        products: products.length ? products : undefined,
+        language: lang,
+      });
+    }
 
     // Gemini API call
     const geminiRes = await fetch(GEMINI_URL, {
@@ -192,4 +222,115 @@ function extractSearchQuery(messages: { role: string; content: string }[]): stri
   if (priceMatch) return `gift ${priceMatch[0]}`;
 
   return "popular gift sri lanka";
+}
+
+async function describeImageForSearch(
+  imageData: { base64: string; mimeType: string },
+  userNote: string
+): Promise<string> {
+  const prompt = [
+    "Look at this product or gift image and return one concise Kapruka search query.",
+    "Use plain English product words only. Mention the main visible item, style, and occasion if obvious.",
+    "Keep it under 8 words. Do not include punctuation or explanations.",
+    userNote ? `User note: ${userNote}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const data = await callGemini({
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { text: prompt },
+          {
+            inline_data: {
+              mime_type: imageData.mimeType,
+              data: imageData.base64,
+            },
+          },
+        ],
+      },
+    ],
+    generationConfig: {
+      maxOutputTokens: 64,
+      temperature: 0.2,
+    },
+  });
+
+  const query = extractGeminiText(data)
+    .replace(/["'`]/g, "")
+    .replace(/[.\n\r]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return query || "popular gift sri lanka";
+}
+
+async function generateImageSearchReply(
+  query: string,
+  products: Product[],
+  langInstruction: string
+): Promise<string> {
+  if (!products.length) {
+    return `I found this looks like **${query}**, but Kapruka did not return close matches yet. Try another angle or add a few words about the item.`;
+  }
+
+  try {
+    const data = await callGemini({
+      system_instruction: {
+        parts: [
+          {
+            text: `You are Kapruka's GIFTY shopping assistant. ${langInstruction}`,
+          },
+        ],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `The uploaded image was summarized as this product search query: "${query}".
+Kapruka returned these real products:
+${JSON.stringify(products.map((p) => ({ name: p.name, price: p.price, desc: p.desc })))}
+
+Write a short friendly response, max 2 sentences. Mention that you found similar items and invite the user to pick one. Do not invent products.`,
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        maxOutputTokens: 160,
+        temperature: 0.5,
+      },
+    });
+
+    const text = extractGeminiText(data).trim();
+    if (text) return text;
+  } catch (err) {
+    console.error("Image reply Gemini error:", err);
+  }
+
+  return `I found this looks like **${query}** and pulled up similar Kapruka picks for you. Want me to help choose the best one?`;
+}
+
+async function callGemini(payload: Record<string, unknown>) {
+  const res = await fetch(GEMINI_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data: GeminiResponse = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.error?.message || "Gemini API error");
+  }
+  return data;
+}
+
+function extractGeminiText(data: GeminiResponse): string {
+  return data.candidates?.[0]?.content?.parts
+    ?.map((part: { text?: string }) => part.text || "")
+    .join("")
+    .trim() || "";
 }
