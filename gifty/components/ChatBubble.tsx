@@ -5,6 +5,7 @@ import { ProductCarousel } from "./ProductCard";
 import { OrderConfirmation } from "./OrderConfirmation";
 import type { ChatMessage, Product } from "@/types";
 import { useSessionStore } from "@/lib/session";
+import { OrderTracking } from "./OrderTracking";
 
 interface ChatBubbleProps {
   message: ChatMessage;
@@ -53,6 +54,13 @@ export function ChatBubble({ message }: ChatBubbleProps) {
         {isAgent && message.order && (
           <OrderConfirmation order={message.order} />
         )}
+
+       
+        {isAgent && message.tracking && (
+          <OrderTracking tracking={message.tracking} />
+        )}
+
+      
 
         {clientTime ? (
           <span className="msg-time">
