@@ -11,6 +11,8 @@ import type { ChatMessage } from "@/types";
 import { ChatHistoryPanel } from "@/components/ChatHistory";
 import { VoiceInputButton } from "@/components/VoiceInput";
 
+
+
 const WELCOME_MESSAGE: ChatMessage = {
   id: "welcome",
   role: "assistant",
@@ -77,8 +79,12 @@ export default function ChatPage() {
         timestamp: new Date(),
       };
 
+      
+
       setMessages((prev) => [...prev, userMsg]);
       setIsLoading(true);
+
+
 
       try {
         const historyMessages = [...messages, userMsg]
@@ -105,15 +111,16 @@ export default function ChatPage() {
         // Check if Claude is asking for address/name/phone and auto-populate session
         autoPopulateSession(content, data.text);
 
-        const assistantMsg: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: data.text,
-          products: data.products,
-          order: data.order,
-          timestamp: new Date(),
-          language: data.language,
-        };
+       const assistantMsg: ChatMessage = {
+  id: (Date.now() + 1).toString(),
+  role: "assistant",
+  content: data.text,
+  products: data.products,
+  order: data.order,
+  tracking: data.tracking,
+  timestamp: new Date(),
+  language: data.language,
+};;
 
         setMessages((prev) => [...prev, assistantMsg]);
       } catch {

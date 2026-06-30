@@ -12,11 +12,17 @@ export interface CartItem extends Product {
   quantity: number;
 }
 
+
 export interface Order {
   payLink: string;
   orderId: string;
   total: number;
   deliveryDate?: string;
+}
+
+export interface OrderTracking {
+  orderId: string;
+  markdown: string;
 }
 
 export interface DeliveryQuote {
@@ -36,6 +42,7 @@ export interface ChatMessage {
   imagePreview?: string;
   products?: Product[];
   order?: Order;
+  tracking?: OrderTracking;
   deliveryQuote?: DeliveryQuote;
   timestamp: Date;
   language?: Language;
@@ -64,6 +71,7 @@ export interface ChatResponse {
   text: string;
   products?: Product[];
   order?: Order;
+  tracking?: OrderTracking;
   deliveryQuote?: DeliveryQuote;
   error?: string;
 }

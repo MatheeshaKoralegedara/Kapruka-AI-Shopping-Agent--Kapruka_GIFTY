@@ -1,6 +1,61 @@
 const MCP_ENDPOINT = "https://mcp.kapruka.com/mcp";
 
+let cachedSessionId: string | null = null;
+let initPromise: Promise<string> | null = null;
+
+async function initSession(): Promise<string> {
+  const res = await fetch(MCP_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: "init-" + Date.now(),
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: { name: "gifty-agent", version: "1.0.0" },
+      },
+    }),
+  });
+
+  const sessionId = res.headers.get("mcp-session-id");
+  if (!sessionId) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`MCP init failed: no session id returned - ${body}`);
+  }
+
+  // Some servers also require an "initialized" notification after init
+  await fetch(MCP_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+      "Mcp-Session-Id": sessionId,
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method: "notifications/initialized",
+      params: {},
+    }),
+  }).catch(() => {});
+
+  return sessionId;
+}
+
+async function getSessionId(): Promise<string> {
+  if (cachedSessionId) return cachedSessionId;
+  if (!initPromise) initPromise = initSession();
+  cachedSessionId = await initPromise;
+  return cachedSessionId;
+}
+
 async function callMCP(method: string, params: Record<string, unknown> = {}) {
+  const sessionId = await getSessionId();
+
   const body = {
     jsonrpc: "2.0",
     id: Date.now(),
@@ -16,12 +71,25 @@ async function callMCP(method: string, params: Record<string, unknown> = {}) {
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json, text/event-stream",
+      "Mcp-Session-Id": sessionId,
     },
     body: JSON.stringify(body),
   });
 
+  if (res.status === 400 || res.status === 404) {
+    // Session may have expired — reset and retry once
+    const errBody = await res.text().catch(() => "");
+    if (errBody.toLowerCase().includes("session")) {
+      cachedSessionId = null;
+      initPromise = null;
+      return callMCP(method, params);
+    }
+    throw new Error(`MCP error: ${res.status} ${res.statusText} - ${errBody}`);
+  }
+
   if (!res.ok) {
-    throw new Error(`MCP error: ${res.status} ${res.statusText}`);
+    const errorBody = await res.text().catch(() => "");
+    throw new Error(`MCP error: ${res.status} ${res.statusText} - ${errorBody}`);
   }
 
   const contentType = res.headers.get("content-type") || "";
@@ -33,14 +101,30 @@ async function callMCP(method: string, params: Record<string, unknown> = {}) {
     for (const line of lines) {
       try {
         const data = JSON.parse(line.replace("data: ", ""));
-        if (data?.result) return data.result;
-      } catch {}
+        if (data?.result) {
+          if (data.result.isError) {
+            const msg =
+              data.result.content?.[0]?.text || "MCP tool returned an error";
+            throw new Error(msg);
+          }
+          return data.result;
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message !== "Unexpected end of JSON input") {
+          // Re-throw real errors (like the isError case above), swallow JSON parse noise
+          if (!(e instanceof SyntaxError)) throw e;
+        }
+      }
     }
     throw new Error("No result in SSE stream");
   }
 
   const data = await res.json();
   if (data.error) throw new Error(data.error.message || "MCP error");
+  if (data.result?.isError) {
+    const msg = data.result.content?.[0]?.text || "MCP tool returned an error";
+    throw new Error(msg);
+  }
   return data.result;
 }
 
@@ -101,8 +185,18 @@ export async function createOrder(params: {
 
 export async function trackOrder(orderId: string) {
   try {
-    const result = await callMCP("track_order", { order_id: orderId });
-    return result;
+    const result = await callMCP("kapruka_track_order", {
+      params: { order_number: orderId },
+    });
+
+    if (result?.isError) return null;
+
+    const markdown =
+      result?.structuredContent?.result ||
+      result?.content?.[0]?.text ||
+      null;
+
+    return markdown ? { orderId, markdown } : null;
   } catch (err) {
     console.error("trackOrder error:", err);
     return null;
