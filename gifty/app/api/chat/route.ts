@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { SYSTEM_PROMPT } from "@/lib/prompt";
-import { searchProducts, createOrder } from "@/lib/kapruka";
+import { searchProducts, createOrder, trackOrder } from "@/lib/kapruka";
 import { detectLanguage, getLanguageInstruction } from "@/lib/i18n";
 import type { ChatRequest, Product, Order } from "@/types";
+
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -169,21 +170,45 @@ ${langInstruction}`;
       }
     }
 
+    // Handle order tracking trigger (independent of checkout)
+    const trackMatch = text.match(/\[TRACK_ORDER:\s*"([^"]+)"\]/i);
+    let tracking: unknown;
+    if (trackMatch) {
+      const trackingResult = await trackOrder(trackMatch[1]);
+      if (trackingResult) {
+        tracking = trackingResult;
+        text = text.replace(/\[TRACK_ORDER:[^\]]+\]/i, "").trim();
+        if (!text) {
+          text = "Here's the latest update on your order:";
+        }
+        text += `\n<tracking>${JSON.stringify(trackingResult)}</tracking>`;
+      } else {
+        text = text.replace(/\[TRACK_ORDER:[^\]]+\]/i, "").trim();
+        if (!text) {
+          text = "I couldn't find tracking info for that order — could you double check the order number?";
+        }
+      }
+    }
+
     // Clean XML tags from display text
-    const cleanText = text
+   const cleanText = text
       .replace(/<products>[\s\S]*?<\/products>/g, "")
       .replace(/<order>[\s\S]*?<\/order>/g, "")
+      .replace(/<tracking>[\s\S]*?<\/tracking>/g, "")
       .replace(/<delivery>[\s\S]*?<\/delivery>/g, "")
       .replace(/\[SEARCH:[^\]]+\]/gi, "")
       .replace(/\[CREATE_ORDER\]/gi, "")
+      .replace(/\[TRACK_ORDER:[^\]]+\]/gi, "")
       .trim();
 
     return NextResponse.json({
       text: cleanText,
       products: products?.length ? products : undefined,
       order,
+      tracking,
       language: lang,
     });
+    
   } catch (err) {
     console.error("Chat API error:", err);
     return NextResponse.json(
