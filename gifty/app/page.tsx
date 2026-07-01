@@ -30,6 +30,7 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [lang] = useState<"en" | "si" | "ta" | "tanglish">("en");
   const sessionStore = useSessionStore();
   const resetSession = useSessionStore((s) => s.resetSession);
@@ -37,6 +38,28 @@ export default function ChatPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
+
+  // Lock body scroll while the mobile sidebar drawer is open
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [sidebarOpen]);
+
+  // Close the drawer automatically if the viewport grows past the mobile breakpoint
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1025px)");
+    const handle = (e: MediaQueryListEvent) => {
+      if (e.matches) setSidebarOpen(false);
+    };
+    mq.addEventListener("change", handle);
+    return () => mq.removeEventListener("change", handle);
+  }, []);
 
   const autoPopulateSession = useCallback(
     (userText: string, agentText: string) => {
@@ -170,11 +193,13 @@ export default function ChatPage() {
     setMessages([WELCOME_MESSAGE]);
     setInput("");
     setShowCartDetails(false);
+    setSidebarOpen(false);
     inputRef.current?.focus();
   }, [resetSession]);
 
   const handleOpenHistory = useCallback(() => {
     setHistoryOpen(true);
+    setSidebarOpen(false);
   }, []);
 
   const handleCloseHistory = useCallback(() => {
@@ -202,6 +227,15 @@ export default function ChatPage() {
 
   },[sendMessage]);
 
+  // Used by sidebar prompt buttons: sends the message AND closes the mobile drawer
+  const handleSidebarPrompt = useCallback(
+    (qr: string) => {
+      setSidebarOpen(false);
+      sendMessage(qr);
+    },
+    [sendMessage]
+  );
+
   const quickReplies = [
     "Gift for amma 🎂",
     "Flowers delivery",
@@ -213,22 +247,41 @@ export default function ChatPage() {
   return (
     <div className="shell">
       <div className="layout-grid">
-        <aside className="sidebar">
+        <aside className={`sidebar ${sidebarOpen ? "sidebar-open" : ""}`}>
+          <button
+            type="button"
+            className="sidebar-close"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close menu"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+
           <div className="sidebar-brand">
             <div className="sidebar-logo">
               <img src="/logo2.png" alt="GIFTY" width="30" height="30" />
             </div>
             <div>
-              
               <div className="sidebar-tag">Kapruka chat shopping</div>
             </div>
           </div>
 
           <button type="button" className="new-chat-btn" onClick={handleNewChat}>
-            + New Conversation
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            New Conversation
           </button>
 
-          <button type="button" className="sidebar-prompt" onClick={handleOpenHistory}>
+          <button type="button" className="sidebar-prompt sidebar-history-btn" onClick={handleOpenHistory}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <polyline points="12 7 12 12 16 14" />
+            </svg>
             View chat history
           </button>
 
@@ -240,7 +293,7 @@ export default function ChatPage() {
                   key={qr}
                   type="button"
                   className="sidebar-prompt"
-                  onClick={() => sendMessage(qr)}
+                  onClick={() => handleSidebarPrompt(qr)}
                 >
                   {qr}
                 </button>
@@ -248,7 +301,7 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="sidebar-section">
+          <div className="sidebar-section sidebar-section-note">
             <div className="sidebar-section-title">Why GIFTY?</div>
             <p className="sidebar-note">
               Discover gifts fast, shop with Sinhala, English, Tamil, Tanglish support, and complete checkout in chat.
@@ -256,10 +309,29 @@ export default function ChatPage() {
           </div>
         </aside>
 
+        {sidebarOpen && (
+          <div
+            className="sidebar-backdrop"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
         <section className="chat-panel">
           <header className="header">
             <div className="header-brand">
-              
+              <button
+                type="button"
+                className="menu-btn"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open menu"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
               <div>
                 <h1 className="brand-name">GIFTY</h1>
                 <div className="brand-sub">
@@ -269,7 +341,6 @@ export default function ChatPage() {
               </div>
             </div>
             <div className="header-right">
-              
               <span className="lang-badge">සිං EN த</span>
               <ThemeToggle />
             </div>
@@ -281,7 +352,7 @@ export default function ChatPage() {
                 <div className="hero-card">
                   <div className="hero-icon" aria-hidden="true">
                     <div className="hero-icon-img">
-                      <img src="/logo1.png" alt="GIFTY"  width="150" height="50" />
+                      <img src="/logo1.png" alt="GIFTY" width="150" height="50" />
                     </div>
                   </div>
                   <h1 className="hero-title">How can I help you shop today?</h1>
@@ -305,19 +376,21 @@ export default function ChatPage() {
               </div>
             ) : (
               <div className="messages-inner">
-                {messages.map((msg, i) => (
-                  <ChatBubble
-                    key={msg.id || `message-${i}`}
-                    message={msg}
-                    isLatest={i === messages.length - 1}
-                  />
-                ))}
+                <div className="messages-scroll-area">
+                  {messages.map((msg, i) => (
+                    <ChatBubble
+                      key={msg.id || `message-${i}`}
+                      message={msg}
+                      isLatest={i === messages.length - 1}
+                    />
+                  ))}
 
-                <AnimatePresence>
-                  {isLoading && <TypingIndicator />}
-                </AnimatePresence>
+                  <AnimatePresence>
+                    {isLoading && <TypingIndicator />}
+                  </AnimatePresence>
 
-                <div ref={bottomRef} />
+                  <div ref={bottomRef} />
+                </div>
               </div>
             )}
           </main>
@@ -425,6 +498,13 @@ export default function ChatPage() {
           --color-text-secondary: #555;
           --color-border: rgba(0, 0, 0, 0.1);
           --color-accent: #ff6b35;
+          --radius-lg: 30px;
+          --radius-md: 20px;
+          --radius-sm: 14px;
+          --safe-top: env(safe-area-inset-top, 0px);
+          --safe-bottom: env(safe-area-inset-bottom, 0px);
+          --safe-left: env(safe-area-inset-left, 0px);
+          --safe-right: env(safe-area-inset-right, 0px);
         }
 
         html.dark {
@@ -441,14 +521,28 @@ export default function ChatPage() {
 
         body, html { min-height: 100%; overflow: auto; }
 
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: 0.001ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.001ms !important;
+            scroll-behavior: auto !important;
+          }
+        }
+
         .shell {
           min-height: 100vh;
+          min-height: 100dvh;
           display: flex;
           align-items: stretch;
           justify-content: center;
           background: var(--color-bg-primary);
           font-family: 'DM Sans', sans-serif;
-          padding: 14px;
+          padding: 16px;
+          padding-top: max(16px, var(--safe-top));
+          padding-bottom: max(16px, var(--safe-bottom));
+          padding-left: max(16px, var(--safe-left));
+          padding-right: max(16px, var(--safe-right));
           transition: background-color 0.3s ease;
         }
 
@@ -458,37 +552,39 @@ export default function ChatPage() {
 
         .layout-grid {
           width: 100%;
-          max-width: 1360px;
+          max-width: 1400px;
           display: grid;
-          grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-          gap: 24px;
+          grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+          gap: 20px;
           align-items: stretch;
         }
+
+        /* ---------- Sidebar ---------- */
 
         .sidebar {
           display: flex;
           flex-direction: column;
-          gap: 28px;
+          gap: 22px;
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
-          border-radius: 30px;
-          padding: 26px;
-          min-height: calc(100dvh - 34px);
+          border-radius: var(--radius-lg);
+          padding: 24px;
+          min-height: calc(100dvh - 32px);
           position: sticky;
           top: 16px;
-          transition: background-color 0.3s ease, border-color 0.3s ease;
+          transition: background-color 0.3s ease, border-color 0.3s ease, transform 0.28s ease;
         }
 
         .sidebar-brand {
           display: flex;
           align-items: center;
-          gap: 14px;
+          gap: 12px;
         }
 
         .sidebar-logo {
-          width: 90px;
-          height: 44px;
-          border-radius: 16px;
+          width: 84px;
+          height: 40px;
+          border-radius: 14px;
           background: linear-gradient(135deg, #ff6b35, #ff9500);
           display: flex;
           align-items: center;
@@ -496,19 +592,13 @@ export default function ChatPage() {
           color: #fff;
           font-weight: 700;
           font-size: 18px;
+          flex-shrink: 0;
         }
         .sidebar-logo img {
-          width: 90px;
-          height: 44px;
+          width: 84px;
+          height: 40px;
           border-radius: 12px;
           object-fit: cover;
-        }
-
-        .sidebar-name {
-          color: var(--color-text-primary);
-          font-size: 18px;
-          font-weight: 700;
-          transition: color 0.3s ease;
         }
 
         .sidebar-tag {
@@ -518,33 +608,52 @@ export default function ChatPage() {
           transition: color 0.3s ease;
         }
 
+        .sidebar-close {
+          display: none;
+          align-self: flex-end;
+          width: 30px;
+          height: 30px;
+          border-radius: 50%;
+          border: 0.5px solid var(--color-border);
+          background: var(--color-bg-tertiary);
+          color: var(--color-text-primary);
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          flex-shrink: 0;
+          margin-bottom: -10px;
+          transition: background 0.15s ease;
+        }
+        .sidebar-close:hover { background: var(--color-border); }
+
         .new-chat-btn {
-          background: linear-gradient(135deg, #ffffff, #ffffff);
-          color: #000000;
-          padding: 14px 16px;
+          background: #fff;
+          color: #0a050f;
+          padding: 13px 16px;
           border: none;
-          border-radius: 18px;
-          font-size: 15px;
+          border-radius: 16px;
+          font-size: 14px;
           font-weight: 700;
           cursor: pointer;
-          box-shadow: 0 20px 40px rgba(208, 53, 255, 0.18);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          box-shadow: 0 16px 32px rgba(208, 53, 255, 0.16);
           transition: transform 0.15s ease, filter 0.15s ease;
-        }
-
-        html.dark .new-chat-btn {
-          background: linear-gradient(135deg, #ffffff, #ffffff);
         }
 
         .new-chat-btn:hover {
           transform: translateY(-1px);
           filter: brightness(1.03);
         }
+        .new-chat-btn:active { transform: translateY(0); }
 
         .sidebar-section {
           background: var(--color-bg-tertiary);
           border: 1px solid var(--color-border);
-          border-radius: 22px;
-          padding: 16px;
+          border-radius: var(--radius-md);
+          padding: 15px;
           transition: background-color 0.3s ease, border-color 0.3s ease;
         }
 
@@ -552,19 +661,24 @@ export default function ChatPage() {
           background: rgba(255, 255, 255, 0.02);
         }
 
+        .sidebar-section-note {
+          margin-top: auto;
+        }
+
         .sidebar-section-title {
           color: var(--color-text-primary);
-          font-size: 12px;
+          font-size: 11px;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          margin-bottom: 12px;
+          margin-bottom: 11px;
+          font-weight: 600;
           transition: color 0.3s ease;
         }
 
         .sidebar-prompts {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 8px;
         }
 
         .sidebar-prompt {
@@ -572,11 +686,14 @@ export default function ChatPage() {
           background: var(--color-bg-primary);
           color: var(--color-text-primary);
           border: 1px solid var(--color-border);
-          border-radius: 16px;
-          padding: 12px 14px;
+          border-radius: var(--radius-sm);
+          padding: 11px 13px;
           text-align: left;
           cursor: pointer;
           font-size: 13px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
           transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
         }
 
@@ -586,12 +703,23 @@ export default function ChatPage() {
           border-color: rgba(255, 107, 53, 0.33);
         }
 
+        .sidebar-history-btn {
+          color: var(--color-text-secondary);
+          font-weight: 600;
+        }
+
         .sidebar-note {
           color: var(--color-text-secondary);
-          font-size: 13px;
+          font-size: 12.5px;
           line-height: 1.6;
           transition: color 0.3s ease;
         }
+
+        .sidebar-backdrop {
+          display: none;
+        }
+
+        /* ---------- Chat panel ---------- */
 
         .chat-panel {
           display: flex;
@@ -600,17 +728,17 @@ export default function ChatPage() {
           overflow: hidden;
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
-          border-radius: 30px;
-          box-shadow: 0 34px 85px rgba(0, 0, 0, 0.14);
+          border-radius: var(--radius-lg);
+          box-shadow: 0 30px 70px rgba(0, 0, 0, 0.14);
           transition: background-color 0.3s ease, border-color 0.3s ease;
         }
 
         html.light .chat-panel {
-          box-shadow: 0 34px 85px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 30px 70px rgba(0, 0, 0, 0.1);
         }
 
         .header {
-          padding: 22px 24px 18px;
+          padding: 18px 24px;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -620,29 +748,33 @@ export default function ChatPage() {
           transition: border-color 0.3s ease;
         }
 
-        .header-brand { display: flex; align-items: center; gap: 10px; }
-        .header-right { display: flex; align-items: center; gap: 12px; }
+        .header-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .header-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 
-        .yamu-logo {
-          width: 38px; height: 38px; border-radius: 50%;
-          background: linear-gradient(135deg, #ff6b35, #ff9500);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 18px; font-weight: 700; color: #fff;
-          font-family: 'DM Serif Display', serif;
+        .menu-btn {
+          display: none;
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          background: var(--color-bg-tertiary);
+          border: 0.5px solid var(--color-border);
+          color: var(--color-text-primary);
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: border-color 0.15s ease, color 0.15s ease;
         }
-        .yamu-logo img {
-          width: 38px;
-          height: 38px;
-          border-radius: 50%;
-          object-fit: cover;
-        }
+        .menu-btn:hover { border-color: #ff6b3560; color: #ff6b35; }
+        .menu-btn:active { transform: scale(0.94); }
 
         .brand-name {
           color: var(--color-text-primary);
-          font-size: 17px;
-          font-weight: 500;
+          font-size: 16px;
+          font-weight: 600;
           font-family: 'DM Sans', sans-serif;
           letter-spacing: 0.01em;
+          line-height: 1.2;
           transition: color 0.3s ease;
         }
 
@@ -652,7 +784,7 @@ export default function ChatPage() {
           display: flex;
           align-items: center;
           gap: 5px;
-          margin-top: 1px;
+          margin-top: 2px;
           transition: color 0.3s ease;
         }
 
@@ -661,15 +793,17 @@ export default function ChatPage() {
           background: #4ade80;
           border-radius: 50%;
           display: inline-block;
+          flex-shrink: 0;
         }
 
         .lang-badge {
           font-size: 11px;
           color: var(--color-text-secondary);
           border: 0.5px solid var(--color-border);
-          padding: 4px 8px;
+          padding: 5px 10px;
           border-radius: 20px;
           letter-spacing: 0.05em;
+          white-space: nowrap;
           transition: color 0.3s ease, border-color 0.3s ease;
         }
 
@@ -680,94 +814,80 @@ export default function ChatPage() {
           min-height: 0;
           transition: background-color 0.3s ease;
         }
-        .chat-area::-webkit-scrollbar { width: 4px; }
-        .chat-area::-webkit-scrollbar-track { background: transparent; }
-        .chat-area::-webkit-scrollbar-thumb { background: var(--color-bg-tertiary); border-radius: 4px; transition: background 0.3s ease; }
+
+        /* ---------- Hero (empty state) ---------- */
 
         .hero {
           flex: 1;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 34px 24px;
+          padding: 32px 24px;
+          overflow-y: auto;
         }
 
         .hero-card {
-          width: min(100%, 840px);
+          width: min(100%, 760px);
           background: rgba(255, 255, 255, 0.9);
           border: 1px solid rgba(0, 0, 0, 0.08);
-          border-radius: 36px;
-          padding: 44px 44px 34px;
+          border-radius: 32px;
+          padding: 40px 40px 32px;
           text-align: center;
-          box-shadow: 0 35px 90px rgba(7, 12, 34, 0.16);
+          box-shadow: 0 30px 80px rgba(7, 12, 34, 0.14);
           backdrop-filter: blur(16px);
           display: flex;
           flex-direction: column;
-          gap: 24px;
+          gap: 22px;
         }
 
         html.dark .hero-card {
           background: rgba(15, 14, 25, 0.88);
           border-color: rgba(255, 255, 255, 0.08);
-          box-shadow: 0 35px 90px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
         }
 
-        .hero-icon {
-          width: 150px;
-          height: 49px;
-          margin: 0 auto;
-          border-radius: 24px;
-          display: grid;
-          place-items: center;
-          font-size: 32px;
-          color: #ffffff;
-          background: linear-gradient(135deg, #ff35eb, #2e0236);
-          box-shadow: 0 10px 30px rgb(97, 5, 130);
-        }
-          
         .hero-icon-img {
-          width: 150px;
-          height: 50px;
-          
+          width: 140px;
+          height: 46px;
+          margin: 0 auto;
           display: grid;
           place-items: center;
-          object-fit: cover;
         }
 
         .hero-icon-img img {
-          border-radius: 24px;
+          border-radius: 20px;
         }
 
         .hero-title {
-          font-size: clamp(2rem, 3vw, 3rem);
-          line-height: 1.05;
+          font-size: clamp(1.7rem, 2.6vw, 2.6rem);
+          line-height: 1.12;
           color: var(--color-text-primary);
           font-weight: 700;
           margin: 0;
         }
 
         .hero-description {
-          max-width: 680px;
+          max-width: 620px;
           margin: 0 auto;
           color: var(--color-text-secondary);
-          font-size: 1rem;
-          line-height: 1.8;
+          font-size: 0.98rem;
+          line-height: 1.7;
         }
 
         .hero-prompts {
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 14px;
-          margin-top: 4px;
+          gap: 12px;
+          margin-top: 2px;
         }
 
         .hero-prompt {
           border: 1px solid rgba(255, 107, 53, 0.2);
           background: rgba(255, 255, 255, 0.9);
           color: #111827;
-          padding: 18px 20px;
-          border-radius: 20px;
-          font-size: 0.96rem;
+          padding: 16px 18px;
+          border-radius: 18px;
+          font-size: 0.92rem;
           font-weight: 600;
           cursor: pointer;
           transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
@@ -778,31 +898,47 @@ export default function ChatPage() {
           border-color: #ff6b35;
           box-shadow: 0 12px 28px rgba(255, 107, 53, 0.12);
         }
+        .hero-prompt:active { transform: translateY(0); }
 
         html.dark .hero-prompt {
           background: rgba(255, 255, 255, 0.05);
           color: #f8fafc;
         }
 
+        /* ---------- Messages ---------- */
+
         .messages-inner {
-          padding: 18px 20px 10px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-          min-height: 0;
           flex: 1 1 auto;
+          min-height: 0;
+          display: flex;
+          justify-content: center;
           overflow-y: auto;
           scrollbar-width: thin;
           scrollbar-color: var(--color-border) transparent;
         }
+        .messages-inner::-webkit-scrollbar { width: 5px; }
+        .messages-inner::-webkit-scrollbar-track { background: transparent; }
+        .messages-inner::-webkit-scrollbar-thumb { background: var(--color-bg-tertiary); border-radius: 4px; }
+
+        .messages-scroll-area {
+          width: 100%;
+          max-width: 820px;
+          padding: 20px 24px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        /* ---------- Quick replies / cart / input ---------- */
 
         .quick-replies {
           display: flex;
           gap: 8px;
-          padding: 0 16px 10px;
+          padding: 0 20px 10px;
           overflow-x: auto;
           scrollbar-width: none;
           flex-shrink: 0;
+          justify-content: center;
         }
         .quick-replies::-webkit-scrollbar { display: none; }
 
@@ -821,10 +957,16 @@ export default function ChatPage() {
         }
         .quick-reply-btn:hover { border-color: #ff6b3560; color: #ff9500; }
 
-        .cart-area { padding: 0 14px; flex-shrink: 0; }
+        .cart-area {
+          padding: 0 20px;
+          flex-shrink: 0;
+          display: flex;
+          justify-content: center;
+        }
+        .cart-area > * { width: 100%; max-width: 820px; }
 
         .input-area {
-          padding: 14px 16px 16px;
+          padding: 14px 20px 18px;
           display: flex;
           align-items: center;
           gap: 10px;
@@ -834,15 +976,19 @@ export default function ChatPage() {
           position: sticky;
           bottom: 0;
           z-index: 2;
+          justify-content: center;
           transition: border-color 0.3s ease;
         }
+
+        .input-area > * { flex-shrink: 0; }
+        .input-area .chat-input { flex: 1; max-width: 780px; }
 
         .image-input {
           display: none;
         }
 
         .image-btn {
-          width: 38px; height: 38px;
+          width: 40px; height: 40px;
           border-radius: 50%;
           background: var(--color-bg-tertiary);
           border: 0.5px solid var(--color-border);
@@ -859,23 +1005,22 @@ export default function ChatPage() {
         .image-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .chat-input {
-          flex: 1;
           background: var(--color-bg-tertiary);
           border: 0.5px solid var(--color-border);
           border-radius: 24px;
-          padding: 10px 18px;
+          padding: 11px 18px;
           color: var(--color-text-primary);
-          font-size: 13.5px;
+          font-size: 14px;
           font-family: 'DM Sans', sans-serif;
           outline: none;
           transition: border-color 0.2s, background-color 0.3s, color 0.3s;
         }
-        .chat-input::placeholder { color: var(--color-text-secondary); opacity: 0.5; }
+        .chat-input::placeholder { color: var(--color-text-secondary); opacity: 0.55; }
         .chat-input:focus { border-color: #ff6b3540; }
         .chat-input:disabled { opacity: 0.5; }
 
         .send-btn {
-          width: 38px; height: 38px;
+          width: 40px; height: 40px;
           border-radius: 50%;
           background: #ff6b35;
           border: none;
@@ -891,54 +1036,154 @@ export default function ChatPage() {
         .send-btn:active:not(:disabled) { transform: scale(0.93); }
         .send-btn:disabled { background: var(--color-bg-tertiary); color: var(--color-text-secondary); cursor: not-allowed; }
 
-        @media (max-width: 1024px) {
-          body, html { overflow: visible; }
-          .shell { padding: 12px; }
-          .layout-grid { grid-template-columns: 1fr; gap: 16px; }
-          .sidebar {
-            position: relative;
-            top: 0;
-            min-height: auto;
-            max-height: none;
-          }
-          .chat-panel {
-            height: auto;
-            min-height: calc(100dvh - 32px);
-          }
-          .header { flex-wrap: wrap; gap: 12px; }
-          .header-right { width: 100%; justify-content: space-between; }
+        /* ---------- Focus visibility (accessibility) ---------- */
+
+        button:focus-visible,
+        input:focus-visible {
+          outline: 2px solid #ff6b35;
+          outline-offset: 2px;
         }
 
+        /* ==================================================
+           TABLET / SMALL DESKTOP
+           ================================================== */
+        @media (max-width: 1180px) {
+          .layout-grid {
+            grid-template-columns: minmax(230px, 270px) minmax(0, 1fr);
+            gap: 16px;
+          }
+          .sidebar { padding: 20px; }
+        }
+
+        /* ==================================================
+           MOBILE + TABLET (drawer sidebar)
+           ================================================== */
+        @media (max-width: 1024px) {
+          body, html { overflow: visible; }
+          .shell { padding: 12px; padding-top: max(12px, var(--safe-top)); padding-bottom: max(12px, var(--safe-bottom)); }
+          .layout-grid { grid-template-columns: 1fr; gap: 0; }
+
+          .menu-btn {
+            display: flex;
+          }
+
+          .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100dvh;
+            width: min(84vw, 320px);
+            max-height: none;
+            border-radius: 0 26px 26px 0;
+            z-index: 60;
+            transform: translateX(-105%);
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.35);
+            overflow-y: auto;
+            padding-top: max(20px, var(--safe-top));
+            padding-bottom: max(20px, var(--safe-bottom));
+          }
+
+          .sidebar.sidebar-open {
+            transform: translateX(0);
+          }
+
+          .sidebar-close {
+            display: flex;
+          }
+
+          .sidebar-backdrop {
+            display: block;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 55;
+            animation: fadeIn 0.2s ease;
+          }
+
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+
+          .chat-panel {
+            height: calc(100dvh - 24px);
+          }
+
+          .header {
+            padding: 14px 16px;
+          }
+        }
+
+        /* ==================================================
+           SMALL MOBILE
+           ================================================== */
         @media (max-width: 640px) {
           .shell {
-            padding: 10px;
+            padding: 8px;
+            padding-top: max(8px, var(--safe-top));
+            padding-bottom: max(8px, var(--safe-bottom));
           }
-          .sidebar {
-            padding: 18px;
-            border-radius: 24px;
+
+          .chat-panel {
+            height: calc(100dvh - 16px);
+            border-radius: 22px;
           }
-          .new-chat-btn { width: 100%; }
+
           .header {
-            padding: 18px 18px 14px;
-            justify-content: space-between;
+            padding: 12px 14px;
           }
-          .brand-name { font-size: 16px; }
-          .header-right { gap: 10px; }
-          .lang-badge { font-size: 10px; padding: 4px 7px; }
-          .chat-area { min-height: 50vh; }
+          .brand-name { font-size: 15px; }
+          .brand-sub { font-size: 10px; }
+          .header-right { gap: 8px; }
+          .lang-badge { font-size: 9.5px; padding: 4px 8px; }
+
+          .hero {
+            padding: 18px 12px;
+          }
+          .hero-card {
+            padding: 26px 20px 22px;
+            border-radius: 24px;
+            gap: 16px;
+          }
+          .hero-icon-img { width: 120px; height: 40px; }
+          .hero-title {
+            font-size: 1.4rem;
+          }
+          .hero-description {
+            font-size: 0.86rem;
+            line-height: 1.6;
+          }
+          /* Starter prompts already live in the sidebar drawer + quick-replies strip,
+             so the duplicated grid is dropped here to reduce clutter. */
+          .hero-prompts {
+            display: none;
+          }
+
+          .messages-scroll-area {
+            padding: 14px 14px 8px;
+            gap: 12px;
+          }
+
+          .quick-replies { padding: 0 12px 8px; justify-content: flex-start; }
+          .cart-area { padding: 0 12px; }
+
           .input-area {
-            padding: 10px 12px 14px;
+            padding: 10px 12px;
+            padding-bottom: max(10px, var(--safe-bottom));
             gap: 8px;
-            flex-wrap: wrap;
           }
+          .image-btn { width: 38px; height: 38px; }
           .chat-input {
-            width: 100%;
-            min-width: 0;
+            font-size: 16px; /* prevents iOS auto-zoom on focus */
+            padding: 10px 16px;
           }
-          .send-btn { width: 44px; height: 44px; }
-          .quick-replies { padding: 0 12px 10px; }
-          .sidebar-prompt { font-size: 12px; }
-          .messages-inner { gap: 12px; }
+          .send-btn { width: 42px; height: 42px; }
+        }
+
+        /* Very small phones (≤380px) */
+        @media (max-width: 380px) {
+          .hero-title { font-size: 1.25rem; }
+          .sidebar { width: 88vw; }
         }
       `}</style>
     </div>
