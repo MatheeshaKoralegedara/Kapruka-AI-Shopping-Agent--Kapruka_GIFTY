@@ -6,7 +6,7 @@ import type { ChatRequest, Product, Order } from "@/types";
 
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_API_KEY}`;
 
 type GeminiResponse = {
   candidates?: Array<{
@@ -80,7 +80,13 @@ ${langInstruction}`;
           role: m.role === "assistant" ? "model" : "user",
           parts: [{ text: m.content }],
         })),
-        generationConfig: { maxOutputTokens: 1024 },
+        generationConfig: {
+          maxOutputTokens: 1024,
+          // Gemini 3.1 Flash-Lite supports thinking levels: minimal | low | medium | high.
+          // "low" keeps chat replies fast while still reasoning enough for
+          // multilingual intent parsing, cart/checkout logic, and tool-call triggers.
+          thinkingConfig: { thinkingLevel: "low" },
+        },
       }),
     });
 
@@ -280,6 +286,8 @@ async function describeImageForSearch(
     generationConfig: {
       maxOutputTokens: 64,
       temperature: 0.2,
+      // Simple, bounded extraction task — minimal thinking keeps this fast and cheap.
+      thinkingConfig: { thinkingLevel: "minimal" },
     },
   });
 
@@ -327,6 +335,7 @@ Write a short friendly response, max 2 sentences. Mention that you found similar
       generationConfig: {
         maxOutputTokens: 160,
         temperature: 0.5,
+        thinkingConfig: { thinkingLevel: "minimal" },
       },
     });
 
