@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { SYSTEM_PROMPT } from "@/lib/prompt";
 import { searchProducts, createOrder, trackOrder } from "@/lib/kapruka";
 import { detectLanguage, getLanguageInstruction } from "@/lib/i18n";
+import { computeCartSignature } from "@/lib/Ordersignature";
 import type { ChatRequest, Product, Order } from "@/types";
 
 
@@ -22,7 +23,7 @@ type GeminiResponse = {
 export async function POST(req: Request) {
   try {
     const body: ChatRequest = await req.json();
-    const { messages, sessionData, imageData } = body;
+    const { messages, sessionData, imageData, existingOrder, existingOrderSignature } = body;
 
     if (!messages?.length) {
       return NextResponse.json({ error: "No messages provided" }, { status: 400 });
@@ -35,6 +36,19 @@ export async function POST(req: Request) {
 
     // Build context injection
     const contextParts: string[] = [];
+
+    // The model has no reliable sense of "today" on its own — without this,
+    // it can accept delivery dates that are already in the past (seen live:
+    // accepting "2026/06/23" when the actual date was 2026/07/02). Always
+    // give it the real current date in Sri Lanka time.
+    const todayInSriLanka = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Colombo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date()); // en-CA gives YYYY-MM-DD format
+    contextParts.push(`[Today's date: ${todayInSriLanka} (Sri Lanka time, Asia/Colombo)]`);
+
     if (sessionData?.cart?.length) {
       contextParts.push(`[Cart: ${sessionData.cart.length} items, total Rs. ${sessionData.cart.reduce((s, i) => s + i.price * i.quantity, 0).toLocaleString()}]`);
     }
@@ -82,9 +96,6 @@ ${langInstruction}`;
         })),
         generationConfig: {
           maxOutputTokens: 1024,
-          // Gemini 3.1 Flash-Lite supports thinking levels: minimal | low | medium | high.
-          // "low" keeps chat replies fast while still reasoning enough for
-          // multilingual intent parsing, cart/checkout logic, and tool-call triggers.
           thinkingConfig: { thinkingLevel: "low" },
         },
       }),
@@ -148,14 +159,67 @@ ${langInstruction}`;
       } catch {}
     }
 
-    // Handle explicit checkout trigger
-    if (
+    // --- Idempotent order handling ---------------------------------------
+    // Before considering a fresh checkout, check whether the client already
+    // has an order for the EXACT current cart/address/recipient/date state
+    // (signature match). If so, we never call createOrder() again this
+    // turn — we just re-attach the existing order, whether the model
+    // re-emitted [CREATE_ORDER] or the user simply asked for order details.
+    const currentSignature = computeCartSignature({
+      cart: sessionData?.cart,
+      address: sessionData?.address,
+      recipientName: sessionData?.recipientName,
+      recipientPhone: sessionData?.recipientPhone,
+      deliveryDate: sessionData?.deliveryDate,
+    });
+    const hasMatchingExistingOrder =
+      !!existingOrder &&
+      !!existingOrderSignature &&
+      existingOrderSignature === currentSignature;
+
+    if (hasMatchingExistingOrder) {
+      order = existingOrder;
+
+      // The model sometimes narrates order details in prose that LOOKS like
+      // the real order card (e.g. "Order confirmed! Order #... Total Rs...
+      // [Pay now →](url)") even when told not to — it just avoids the exact
+      // forbidden phrasing without avoiding the underlying behavior. Rather
+      // than trying to regex-detect every way it could phrase that, we
+      // simply don't trust the model's text at all once we know we're just
+      // re-showing an existing order: replace it with a short, consistent
+      // message and let the real <order> card (with the REAL pay link)
+      // carry the actual information.
+      const looksLikeOrderNarration =
+        text.includes("[CREATE_ORDER]") ||
+        /order\s*#|order\s*confirmed|total[:\s]*rs\.?|pay\s*now|payment\s*link|\]\(https?:\/\//i.test(
+          text
+        );
+
+      if (looksLikeOrderNarration) {
+        text = "Here's your order — tap below to see everything! 👇";
+      }
+
+      // Make sure the order card actually renders even if this turn's
+      // reply is plain text (e.g. user just asked "give me order details").
+      if (!text.includes("<order>")) {
+        text += `\n<order>${JSON.stringify(order)}</order>`;
+      }
+    } else if (
       text.includes("[CREATE_ORDER]") &&
       sessionData?.cart?.length &&
       sessionData?.address &&
       sessionData?.recipientName &&
       sessionData?.recipientPhone
     ) {
+      // --- Hard guard against past delivery dates -----------------------
+      // Belt-and-suspenders on top of the "today's date" context injection
+      // above: even if the model still gets this wrong, never let a
+      // backdated order actually reach createOrder().
+      const dateIssue = getPastDateIssue(sessionData.deliveryDate, todayInSriLanka);
+      if (dateIssue) {
+        text = text.replace("[CREATE_ORDER]", "").trim();
+        text += `\n\n${dateIssue}`;
+      } else {
       const orderResult = await createOrder({
         items: sessionData.cart.map((i) => ({ product_id: i.id, quantity: i.quantity })),
         delivery_address: sessionData.address,
@@ -170,9 +234,24 @@ ${langInstruction}`;
           payLink: orderResult.pay_link || orderResult.payLink,
           orderId: orderResult.order_id || orderResult.orderId || "ORD-" + Date.now(),
           total: sessionData.cart.reduce((s, i) => s + i.price * i.quantity, 0),
+          // Carried through so the chat UI can show a full order-details
+          // breakdown before/after payment, not just the total.
+          items: sessionData.cart.map((i) => ({
+            id: i.id,
+            name: i.name,
+            price: i.price,
+            quantity: i.quantity,
+            image: i.image,
+          })),
+          deliveryAddress: sessionData.address,
+          recipientName: sessionData.recipientName,
+          recipientPhone: sessionData.recipientPhone,
+          deliveryDate: sessionData.deliveryDate,
+          giftNote: sessionData.giftNote,
         };
         text = text.replace("[CREATE_ORDER]", "").trim();
         text += `\n<order>${JSON.stringify(order)}</order>`;
+      }
       }
     }
 
@@ -222,6 +301,37 @@ ${langInstruction}`;
       { status: 500 }
     );
   }
+}
+
+/**
+ * Returns a friendly message explaining the issue if the given delivery
+ * date is in the past (relative to the real current date in Sri Lanka),
+ * or null if the date is valid / unparseable-but-not-obviously-wrong.
+ *
+ * This is a hard backstop: even if the model ignores the "today's date"
+ * context and tries to confirm a backdated order, this prevents
+ * createOrder() from ever being called with it.
+ */
+function getPastDateIssue(deliveryDate: string | undefined, todayISO: string): string | null {
+  if (!deliveryDate) return null;
+
+  const parsed = parseLooseDate(deliveryDate);
+  if (!parsed) return null; // Can't confidently parse (e.g. "tomorrow", "next week") — don't block
+
+  const today = new Date(todayISO + "T00:00:00");
+  if (parsed.getTime() < today.getTime()) {
+    return `That date (${deliveryDate}) has already passed — today is ${todayISO}. Could you give me a valid upcoming delivery date?`;
+  }
+  return null;
+}
+
+/** Best-effort parse of YYYY/MM/DD, YYYY-MM-DD, or ISO date strings. Returns null if unparseable. */
+function parseLooseDate(value: string): Date | null {
+  const match = value.trim().match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (!match) return null;
+  const [, y, m, d] = match;
+  const date = new Date(`${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}T00:00:00`);
+  return isNaN(date.getTime()) ? null : date;
 }
 
 function extractSearchQuery(messages: { role: string; content: string }[]): string {
@@ -286,7 +396,6 @@ async function describeImageForSearch(
     generationConfig: {
       maxOutputTokens: 64,
       temperature: 0.2,
-      // Simple, bounded extraction task — minimal thinking keeps this fast and cheap.
       thinkingConfig: { thinkingLevel: "minimal" },
     },
   });
