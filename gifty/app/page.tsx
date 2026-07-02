@@ -10,6 +10,7 @@ import { useSessionStore } from "@/lib/session";
 import type { ChatMessage } from "@/types";
 import { ChatHistoryPanel } from "@/components/ChatHistory";
 import { VoiceInputButton } from "@/components/VoiceInput";
+import { useTextToSpeech } from "@/hooks/Usetexttospeach";
 
 
 
@@ -34,10 +35,21 @@ export default function ChatPage() {
   const [lang] = useState<"en" | "si" | "ta" | "tanglish">("en");
   const sessionStore = useSessionStore();
   const resetSession = useSessionStore((s) => s.resetSession);
+  const { isSupported: ttsSupported, speakingId, speak, stop: stopSpeaking, autoSpeak, setAutoSpeak } =
+    useTextToSpeech();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
+
+  useEffect(() => {
+    if (!autoSpeak || isLoading) return;
+    const last = messages[messages.length - 1];
+    if (last && last.role === "assistant" && last.id !== "welcome") {
+      speak(last.id, last.content, last.language || "en");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, isLoading, autoSpeak]);
 
   // Lock body scroll while the mobile sidebar drawer is open
   useEffect(() => {
@@ -189,13 +201,14 @@ export default function ChatPage() {
   }, [sendMessage]);
 
   const handleNewChat = useCallback(() => {
+    stopSpeaking();
     resetSession();
     setMessages([WELCOME_MESSAGE]);
     setInput("");
     setShowCartDetails(false);
     setSidebarOpen(false);
     inputRef.current?.focus();
-  }, [resetSession]);
+  }, [resetSession, stopSpeaking]);
 
   const handleOpenHistory = useCallback(() => {
     setHistoryOpen(true);
@@ -342,6 +355,25 @@ export default function ChatPage() {
             </div>
             <div className="header-right">
               <span className="lang-badge">සිං EN த</span>
+              {ttsSupported && (
+                <button
+                  type="button"
+                  className={`autospeak-btn ${autoSpeak ? "autospeak-btn-on" : ""}`}
+                  onClick={() => {
+                    if (autoSpeak) stopSpeaking();
+                    setAutoSpeak((v) => !v);
+                  }}
+                  aria-pressed={autoSpeak}
+                  aria-label={autoSpeak ? "Turn off voice replies" : "Turn on voice replies"}
+                  title={autoSpeak ? "Voice replies on" : "Voice replies off"}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                    <path d="M11 5 6 9H2v6h4l5 4V5Z" />
+                    {autoSpeak && <path d="M16 8a5 5 0 0 1 0 8" />}
+                    {!autoSpeak && <path d="M23 9 17 15M17 9l6 6" opacity="0.6" />}
+                  </svg>
+                </button>
+              )}
               <ThemeToggle />
             </div>
           </header>
@@ -398,6 +430,9 @@ export default function ChatPage() {
                       key={msg.id || `message-${i}`}
                       message={msg}
                       isLatest={i === messages.length - 1}
+                      onSpeak={ttsSupported ? (id, text, lang) => speak(id, text, lang as any) : undefined}
+                      isSpeaking={speakingId === msg.id}
+                      ttsSupported={ttsSupported}
                     />
                   ))}
 
@@ -783,6 +818,27 @@ export default function ChatPage() {
         }
         .menu-btn:hover { border-color: #ff6b3560; color: #ff6b35; }
         .menu-btn:active { transform: scale(0.94); }
+
+        .autospeak-btn {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: var(--color-bg-tertiary);
+          border: 0.5px solid var(--color-border);
+          color: var(--color-text-secondary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          flex-shrink: 0;
+          transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+        }
+        .autospeak-btn:hover { border-color: #ff6b3560; color: #ff6b35; }
+        .autospeak-btn-on {
+          background: #ff6b35;
+          border-color: #ff6b35;
+          color: #fff;
+        }
 
         .brand-name {
           color: var(--color-text-primary);

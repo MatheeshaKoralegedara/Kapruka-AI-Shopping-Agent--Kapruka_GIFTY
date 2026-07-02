@@ -6,13 +6,20 @@ import { OrderConfirmation } from "./OrderConfirmation";
 import type { ChatMessage, Product } from "@/types";
 import { useSessionStore } from "@/lib/session";
 import { OrderTracking } from "./OrderTracking";
+import { SpeakerButton } from "./SpeakerButton";
 
 interface ChatBubbleProps {
   message: ChatMessage;
   isLatest?: boolean;
+  /** Call to start/stop reading this message aloud. Omit to hide the speaker button. */
+  onSpeak?: (id: string, text: string, lang?: string) => void;
+  /** Whether this specific message is currently being read aloud. */
+  isSpeaking?: boolean;
+  /** Whether the browser supports speech synthesis at all. */
+  ttsSupported?: boolean;
 }
 
-export function ChatBubble({ message }: ChatBubbleProps) {
+export function ChatBubble({ message, onSpeak, isSpeaking, ttsSupported }: ChatBubbleProps) {
   const addToCart = useSessionStore((s) => s.addToCart);
   const isAgent = message.role === "assistant";
   const clientTime = formatTime(message.timestamp);
@@ -20,6 +27,8 @@ export function ChatBubble({ message }: ChatBubbleProps) {
   const handleAddToCart = (product: Product) => {
     addToCart(product);
   };
+
+  const canSpeak = isAgent && ttsSupported && !!onSpeak && !!message.content;
 
   return (
     <motion.div
@@ -62,11 +71,17 @@ export function ChatBubble({ message }: ChatBubbleProps) {
 
       
 
-        {clientTime ? (
-          <span className="msg-time">
-            {clientTime}
-          </span>
-        ) : null}
+        {(clientTime || canSpeak) && (
+          <div className="msg-footer">
+            {clientTime ? <span className="msg-time">{clientTime}</span> : <span />}
+            {canSpeak && (
+              <SpeakerButton
+                isSpeaking={!!isSpeaking}
+                onToggle={() => onSpeak!(message.id, message.content, message.language)}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       <style>{`
@@ -134,10 +149,19 @@ export function ChatBubble({ message }: ChatBubbleProps) {
           max-width: 240px;
         }
 
+        .msg-footer {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 0 4px;
+        }
+        .user-content .msg-footer {
+          flex-direction: row-reverse;
+        }
+
         .msg-time {
           font-size: 10px;
           color: #444;
-          padding: 0 4px;
           font-family: 'DM Sans', sans-serif;
         }
       `}</style>
