@@ -372,6 +372,22 @@ export default function ChatPage() {
                       </button>
                     ))}
                   </div>
+
+                  {/* Compact horizontal chip row — only visible on small screens,
+                      where the 2-col hero-prompts grid above is hidden. Keeps
+                      starter prompts one tap away without opening the drawer. */}
+                  <div className="hero-prompts-mobile" role="group" aria-label="Quick reply suggestions">
+                    {quickReplies.map((qr) => (
+                      <button
+                        key={qr}
+                        type="button"
+                        className="hero-prompt-chip"
+                        onClick={() => sendMessage(qr)}
+                      >
+                        {qr}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -905,6 +921,10 @@ export default function ChatPage() {
           color: #f8fafc;
         }
 
+        .hero-prompts-mobile {
+          display: none;
+        }
+
         /* ---------- Messages ---------- */
 
         .messages-inner {
@@ -1138,10 +1158,12 @@ export default function ChatPage() {
           .lang-badge { font-size: 9.5px; padding: 4px 8px; }
 
           .hero {
-            padding: 18px 12px;
+            padding: 16px 14px;
+            align-items: flex-start;
+            padding-top: 8vh;
           }
           .hero-card {
-            padding: 26px 20px 22px;
+            padding: 26px 20px 24px;
             border-radius: 24px;
             gap: 16px;
           }
@@ -1153,10 +1175,39 @@ export default function ChatPage() {
             font-size: 0.86rem;
             line-height: 1.6;
           }
-          /* Starter prompts already live in the sidebar drawer + quick-replies strip,
-             so the duplicated grid is dropped here to reduce clutter. */
+          /* The 2-col grid is too wide for small screens; swap it for a
+             horizontal-scroll chip row instead of hiding prompts entirely. */
           .hero-prompts {
             display: none;
+          }
+          .hero-prompts-mobile {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            padding: 2px 2px 4px;
+            margin: 0 -20px;
+            padding-left: 20px;
+            padding-right: 20px;
+            justify-content: flex-start;
+          }
+          .hero-prompts-mobile::-webkit-scrollbar { display: none; }
+          .hero-prompt-chip {
+            flex-shrink: 0;
+            border: 1px solid rgba(255, 107, 53, 0.25);
+            background: var(--color-bg-tertiary);
+            color: var(--color-text-primary);
+            padding: 9px 14px;
+            border-radius: 20px;
+            font-size: 12.5px;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: border-color 0.15s ease, transform 0.1s ease;
+          }
+          .hero-prompt-chip:active {
+            transform: scale(0.96);
+            border-color: #ff6b35;
           }
 
           .messages-scroll-area {
