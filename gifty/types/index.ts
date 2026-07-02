@@ -13,11 +13,24 @@ export interface CartItem extends Product {
 }
 
 
+export interface OrderItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image?: string;
+}
+
 export interface Order {
-  payLink: string;
   orderId: string;
+  payLink: string;
   total: number;
+  items?: OrderItem[];
+  deliveryAddress?: string;
+  recipientName?: string;
+  recipientPhone?: string;
   deliveryDate?: string;
+  giftNote?: string;
 }
 
 export interface OrderTracking {
@@ -65,6 +78,8 @@ export interface ChatRequest {
     base64: string;
     mimeType: string;
   };
+  existingOrder?: Order;
+  existingOrderSignature?: string;
 }
 
 export interface ChatResponse {
@@ -75,3 +90,4 @@ export interface ChatResponse {
   deliveryQuote?: DeliveryQuote;
   error?: string;
 }
+
