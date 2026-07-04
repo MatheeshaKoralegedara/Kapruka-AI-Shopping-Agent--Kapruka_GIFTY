@@ -91,6 +91,10 @@ export function VoiceInputButton({ onTranscript, disabled, language = "en" }: Vo
   const [permissionError, setPermissionError] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const finalTranscriptRef = useRef("");
+  // Guards against onend firing more than once for the same session
+  // (some Android Chrome builds fire it twice), which would otherwise
+  // call onTranscript — and therefore sendMessage — multiple times.
+  const hasFiredRef = useRef(false);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
@@ -124,6 +128,7 @@ export function VoiceInputButton({ onTranscript, disabled, language = "en" }: Vo
     recognition.lang = LANG_MAP[language]?.[0] || "en-US";
 
     finalTranscriptRef.current = "";
+    hasFiredRef.current = false;
 
     recognition.onstart = () => {
       setIsListening(true);
@@ -131,19 +136,48 @@ export function VoiceInputButton({ onTranscript, disabled, language = "en" }: Vo
     };
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
+      // FIX 1: rebuild the transcript from ALL results every time, rather
+      // than appending only from event.resultIndex onward. Some Android
+      // Chrome versions don't advance resultIndex reliably in continuous
+      // mode, which causes already-finalized segments to be re-processed
+      // and appended again. Rebuilding from scratch each time is
+      // idempotent regardless of that quirk, since event.results retains
+      // the full history in continuous mode.
+      //
+      // FIX 2: some devices periodically re-finalize the SAME growing
+      // utterance multiple times as the user keeps talking — e.g. "give"
+      // then "give me" then "give me a" then "give me a best gift" — each
+      // marked isFinal. Naively summing all isFinal transcripts telescopes
+      // into "give give me give me a give me a best...". We filter out
+      // any finalized segment that is a prefix of a LATER finalized
+      // segment, since that later one is simply the more complete
+      // revision of the same utterance, not new content — this collapses
+      // the telescoping case down to just the final, most-complete
+      // version, while still correctly keeping genuinely separate final
+      // phrases (e.g. two sentences with a pause) since neither is a
+      // prefix of the other.
       let interim = "";
-      let final = finalTranscriptRef.current;
+      const finals: string[] = [];
 
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      for (let i = 0; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          final += transcript + " ";
+          finals.push(transcript);
         } else {
-          interim = transcript;
+          interim += transcript;
         }
       }
 
-      finalTranscriptRef.current = final;
+      const normalize = (s: string) => s.trim().toLowerCase();
+      const keptFinals = finals.filter((segment, i) => {
+        const norm = normalize(segment);
+        return !finals.slice(i + 1).some((later) => {
+          const laterNorm = normalize(later);
+          return laterNorm.startsWith(norm) && laterNorm.length > norm.length;
+        });
+      });
+
+      finalTranscriptRef.current = keptFinals.join(" ").trim();
       setInterimText(interim);
     };
 
@@ -159,6 +193,13 @@ export function VoiceInputButton({ onTranscript, disabled, language = "en" }: Vo
     recognition.onend = () => {
       setIsListening(false);
       setInterimText("");
+
+      // FIX 3: only fire once per session, even if onend is called more
+      // than once (seen on some Android WebView builds) — otherwise
+      // sendMessage gets triggered multiple times for the same recording.
+      if (hasFiredRef.current) return;
+      hasFiredRef.current = true;
+
       const final = finalTranscriptRef.current.trim();
       if (final) {
         onTranscript(final);
