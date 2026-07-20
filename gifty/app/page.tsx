@@ -11,8 +11,6 @@ import type { ChatMessage } from "@/types";
 import { ChatHistoryPanel } from "@/components/ChatHistory";
 import { VoiceInputButton } from "@/components/VoiceInput";
 import { useTextToSpeech } from "@/hooks/Usetexttospeach";
-import { computeCartSignature } from "@/lib/Ordersignature";
-import type { Order } from "@/types";
 
 
 
@@ -39,12 +37,6 @@ export default function ChatPage() {
   const resetSession = useSessionStore((s) => s.resetSession);
   const { isSupported: ttsSupported, speakingId, speak, stop: stopSpeaking, autoSpeak, setAutoSpeak } =
     useTextToSpeech();
-  // Tracks the most recent order + a fingerprint of the cart/delivery state
-  // it was created for. Sent with every request so the server can tell
-  // whether an order already exists for the CURRENT cart, and avoid ever
-  // calling createOrder() twice for the same thing (e.g. if the user asks
-  // "give me order details" after checkout is already done).
-  const lastOrderRef = useRef<{ order: Order; signature: string } | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -144,8 +136,6 @@ export default function ChatPage() {
             imageData: imageData
               ? { base64: imageData.base64, mimeType: imageData.mimeType }
               : undefined,
-            existingOrder: lastOrderRef.current?.order,
-            existingOrderSignature: lastOrderRef.current?.signature,
           }),
         });
 
@@ -166,19 +156,6 @@ export default function ChatPage() {
   timestamp: new Date(),
   language: data.language,
 };
-
-        if (data.order) {
-          lastOrderRef.current = {
-            order: data.order,
-            signature: computeCartSignature({
-              cart: sessionStore.toSessionData().cart,
-              address: sessionStore.toSessionData().address,
-              recipientName: sessionStore.toSessionData().recipientName,
-              recipientPhone: sessionStore.toSessionData().recipientPhone,
-              deliveryDate: sessionStore.toSessionData().deliveryDate,
-            }),
-          };
-        }
 
         setMessages((prev) => [...prev, assistantMsg]);
       } catch (err) {
@@ -227,7 +204,6 @@ export default function ChatPage() {
   const handleNewChat = useCallback(() => {
     stopSpeaking();
     resetSession();
-    lastOrderRef.current = null;
     setMessages([WELCOME_MESSAGE]);
     setInput("");
     setShowCartDetails(false);

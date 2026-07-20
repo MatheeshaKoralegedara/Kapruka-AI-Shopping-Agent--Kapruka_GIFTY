@@ -78,8 +78,6 @@ export interface ChatRequest {
     base64: string;
     mimeType: string;
   };
-  existingOrder?: Order;
-  existingOrderSignature?: string;
 }
 
 export interface ChatResponse {

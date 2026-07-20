@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import * as chrono from "chrono-node";
 import { SYSTEM_PROMPT } from "@/lib/prompt";
 import { searchProducts, createOrder, trackOrder } from "@/lib/kapruka";
 import { detectLanguage, getLanguageInstruction } from "@/lib/i18n";
 import { computeCartSignature } from "@/lib/Ordersignature";
+import {
+  getRedisClient,
+  getOrCreateSessionId,
+  getExistingOrder,
+  saveOrder,
+  acquireLock,
+  releaseLock,
+} from "@/lib/orderStore";
 import type { ChatRequest, Product, Order } from "@/types";
 
 
@@ -24,11 +33,18 @@ type GeminiResponse = {
 export async function POST(req: Request) {
   try {
     const body: ChatRequest = await req.json();
-    const { messages, sessionData, imageData, existingOrder, existingOrderSignature } = body;
+    const { messages, sessionData, imageData } = body;
 
     if (!messages?.length) {
       return NextResponse.json({ error: "No messages provided" }, { status: 400 });
     }
+
+    // Server-owned session identity + idempotency store. Unlike the old
+    // client-echoed existingOrder/existingOrderSignature fields, this can't
+    // be omitted or spoofed to bypass duplicate-order protection.
+    const cookieStore = await cookies();
+    const sessionId = getOrCreateSessionId(cookieStore);
+    const redis = getRedisClient();
 
     // Detect language from latest user message
     const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
@@ -161,11 +177,13 @@ ${langInstruction}`;
     }
 
     // --- Idempotent order handling ---------------------------------------
-    // Before considering a fresh checkout, check whether the client already
-    // has an order for the EXACT current cart/address/recipient/date state
-    // (signature match). If so, we never call createOrder() again this
-    // turn — we just re-attach the existing order, whether the model
-    // re-emitted [CREATE_ORDER] or the user simply asked for order details.
+    // Before considering a fresh checkout, check whether an order already
+    // exists (server-side, in Redis) for the EXACT current
+    // cart/address/recipient/date state (signature match). If so, we never
+    // call createOrder() again this turn — we just re-attach the existing
+    // order, whether the model re-emitted [CREATE_ORDER] or the user simply
+    // asked for order details. This lookup is keyed by our own gifty_sid
+    // cookie + signature, not by anything the client body can override.
     const currentSignature = computeCartSignature({
       cart: sessionData?.cart,
       address: sessionData?.address,
@@ -173,12 +191,9 @@ ${langInstruction}`;
       recipientPhone: sessionData?.recipientPhone,
       deliveryDate: sessionData?.deliveryDate,
     });
-    const hasMatchingExistingOrder =
-      !!existingOrder &&
-      !!existingOrderSignature &&
-      existingOrderSignature === currentSignature;
+    const existingOrder = await getExistingOrder(redis, sessionId, currentSignature);
 
-    if (hasMatchingExistingOrder) {
+    if (existingOrder) {
       order = existingOrder;
 
       // The model sometimes narrates order details in prose that LOOKS like
@@ -221,38 +236,89 @@ ${langInstruction}`;
         text = text.replace("[CREATE_ORDER]", "").trim();
         text += `\n\n${dateIssue}`;
       } else {
-      const orderResult = await createOrder({
-        items: sessionData.cart.map((i) => ({ product_id: i.id, quantity: i.quantity })),
-        delivery_address: sessionData.address,
-        recipient_name: sessionData.recipientName,
-        recipient_phone: sessionData.recipientPhone,
-        delivery_date: sessionData.deliveryDate,
-        gift_note: sessionData.giftNote,
-      });
+        // No dedup record found for this signature. This is the expected
+        // path for a genuinely new order, but per the documented limitation
+        // in lib/orderStore.ts it's ALSO what a TTL-expired (>7 day-old)
+        // duplicate looks like — we can't tell those apart with a TTL-based
+        // store. Logged distinctly so it's greppable if duplicates are ever
+        // reported.
+        console.info(
+          `[order-idempotency] no existing record for session=${sessionId} — proceeding to create. ` +
+            `(If this exact cart/address/recipient/date was already ordered more than 7 days ago, ` +
+            `that dedup record would have expired and this will NOT be caught as a duplicate.)`
+        );
 
-      if (orderResult?.pay_link || orderResult?.payLink) {
-        order = {
-          payLink: orderResult.pay_link || orderResult.payLink,
-          orderId: orderResult.order_id || orderResult.orderId || "ORD-" + Date.now(),
-          total: sessionData.cart.reduce((s, i) => s + i.price * i.quantity, 0),
-          // Carried through so the chat UI can show a full order-details
-          // breakdown before/after payment, not just the total.
-          items: sessionData.cart.map((i) => ({
-            id: i.id,
-            name: i.name,
-            price: i.price,
-            quantity: i.quantity,
-            image: i.image,
-          })),
-          deliveryAddress: sessionData.address,
-          recipientName: sessionData.recipientName,
-          recipientPhone: sessionData.recipientPhone,
-          deliveryDate: sessionData.deliveryDate,
-          giftNote: sessionData.giftNote,
-        };
-        text = text.replace("[CREATE_ORDER]", "").trim();
-        text += `\n<order>${JSON.stringify(order)}</order>`;
-      }
+        let lockAcquired = false;
+        try {
+          lockAcquired = await acquireLock(redis, sessionId, currentSignature);
+
+          if (!lockAcquired) {
+            // Another in-flight request (double-click, client retry) is
+            // already creating this exact order — don't call createOrder()
+            // twice. Ask the user to wait rather than silently no-op.
+            text = text.replace("[CREATE_ORDER]", "").trim();
+            text += "\n\nHold on, I'm still processing your order — one moment! 🙏";
+          } else {
+            // TODO(cart-price-trust): sessionData.cart items (and their
+            // prices) are entirely client-supplied and trusted as-is for
+            // the order total below. A tampered client could submit
+            // mismatched prices. Out of scope for the idempotency work —
+            // needs server-side price verification against the Kapruka
+            // catalog (via MCP) before this ships to production traffic.
+            const orderResult = await createOrder({
+              items: sessionData.cart.map((i) => ({ product_id: i.id, quantity: i.quantity })),
+              delivery_address: sessionData.address,
+              recipient_name: sessionData.recipientName,
+              recipient_phone: sessionData.recipientPhone,
+              delivery_date: sessionData.deliveryDate,
+              gift_note: sessionData.giftNote,
+            });
+
+            if (orderResult?.pay_link || orderResult?.payLink) {
+              order = {
+                payLink: orderResult.pay_link || orderResult.payLink,
+                orderId: orderResult.order_id || orderResult.orderId || "ORD-" + Date.now(),
+                total: sessionData.cart.reduce((s, i) => s + i.price * i.quantity, 0),
+                // Carried through so the chat UI can show a full order-details
+                // breakdown before/after payment, not just the total.
+                items: sessionData.cart.map((i) => ({
+                  id: i.id,
+                  name: i.name,
+                  price: i.price,
+                  quantity: i.quantity,
+                  image: i.image,
+                })),
+                deliveryAddress: sessionData.address,
+                recipientName: sessionData.recipientName,
+                recipientPhone: sessionData.recipientPhone,
+                deliveryDate: sessionData.deliveryDate,
+                giftNote: sessionData.giftNote,
+              };
+              await saveOrder(redis, sessionId, currentSignature, order);
+              text = text.replace("[CREATE_ORDER]", "").trim();
+              text += `\n<order>${JSON.stringify(order)}</order>`;
+            } else {
+              console.error(
+                `[order-idempotency] createOrder returned no pay link for session=${sessionId}`
+              );
+              text = text.replace("[CREATE_ORDER]", "").trim();
+              text +=
+                "\n\nSorry, I couldn't place your order just now — please try again in a moment.";
+            }
+          }
+        } catch (err) {
+          console.error("[order-idempotency] order creation failed:", err);
+          text = text.replace("[CREATE_ORDER]", "").trim();
+          text += "\n\nSorry, something went wrong while placing your order — please try again.";
+        } finally {
+          // Always release, and only release what we actually acquired —
+          // this must run even if createOrder() throws, so a failed attempt
+          // never leaves this cart signature soft-locked for the full 15s
+          // with no way for the user to retry sooner.
+          if (lockAcquired) {
+            await releaseLock(redis, sessionId, currentSignature);
+          }
+        }
       }
     }
 
