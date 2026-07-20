@@ -455,7 +455,7 @@ export default function ChatPage() {
                       key={msg.id || `message-${i}`}
                       message={msg}
                       isLatest={i === messages.length - 1}
-                      onSpeak={ttsSupported ? (id, text, lang) => speak(id, text, lang as any) : undefined}
+                      onSpeak={ttsSupported ? (id, text, lang) => speak(id, text, lang) : undefined}
                       isSpeaking={speakingId === msg.id}
                       ttsSupported={ttsSupported}
                     />

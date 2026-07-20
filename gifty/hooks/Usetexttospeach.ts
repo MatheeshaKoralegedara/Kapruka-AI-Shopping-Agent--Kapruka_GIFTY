@@ -32,18 +32,18 @@ function stripForSpeech(raw: string): string {
     .trim();
 }
 
+function speechSynthesisSupported(): boolean {
+  return typeof window !== "undefined" && "speechSynthesis" in window;
+}
+
 export function useTextToSpeech() {
-  const [isSupported, setIsSupported] = useState(false);
+  const [isSupported] = useState(speechSynthesisSupported);
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [autoSpeak, setAutoSpeak] = useState(false);
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      setIsSupported(false);
-      return;
-    }
-    setIsSupported(true);
+    if (!speechSynthesisSupported()) return;
 
     const loadVoices = () => {
       voicesRef.current = window.speechSynthesis.getVoices();
@@ -56,6 +56,10 @@ export function useTextToSpeech() {
       window.speechSynthesis.onvoiceschanged = null;
       window.speechSynthesis.cancel();
     };
+  }, []);
+
+  const normalizeLang = useCallback((lang: string | undefined): SupportedLang => {
+    return lang && lang in LANG_VOICE_PRIORITY ? (lang as SupportedLang) : "en";
   }, []);
 
   const pickVoice = useCallback((lang: SupportedLang) => {
@@ -76,7 +80,7 @@ export function useTextToSpeech() {
   }, []);
 
   const speak = useCallback(
-    (id: string, text: string, lang: SupportedLang = "en") => {
+    (id: string, text: string, lang?: string) => {
       if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
 
       const clean = stripForSpeech(text);
@@ -91,7 +95,7 @@ export function useTextToSpeech() {
       window.speechSynthesis.cancel();
 
       const utterance = new SpeechSynthesisUtterance(clean);
-      const voice = pickVoice(lang);
+      const voice = pickVoice(normalizeLang(lang));
       if (voice) {
         utterance.voice = voice;
         utterance.lang = voice.lang;
@@ -105,7 +109,7 @@ export function useTextToSpeech() {
 
       window.speechSynthesis.speak(utterance);
     },
-    [pickVoice, speakingId, stop]
+    [normalizeLang, pickVoice, speakingId, stop]
   );
 
   return {
