@@ -1,8 +1,0 @@
-⨯ Another next dev server is already running.
-
-- Local:        http://localhost:3000
-- PID:          22984
-- Dir:          C:\Users\ashok\OneDrive\Documents\GitHub\Kapruka-AI-Shopping-Agent--Kapruka_GIFTY\gifty
-- Log:          .next\dev\logs\next-development.log
-
-Run taskkill /PID 22984 /F to stop it.

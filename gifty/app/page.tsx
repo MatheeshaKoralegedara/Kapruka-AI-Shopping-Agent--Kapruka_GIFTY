@@ -165,7 +165,7 @@ export default function ChatPage() {
   tracking: data.tracking,
   timestamp: new Date(),
   language: data.language,
-};;
+};
 
         if (data.order) {
           lastOrderRef.current = {
@@ -181,7 +181,8 @@ export default function ChatPage() {
         }
 
         setMessages((prev) => [...prev, assistantMsg]);
-      } catch {
+      } catch (err) {
+        console.error("sendMessage failed:", err);
         const errorMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: "assistant",

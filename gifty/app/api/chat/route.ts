@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as chrono from "chrono-node";
 import { SYSTEM_PROMPT } from "@/lib/prompt";
 import { searchProducts, createOrder, trackOrder } from "@/lib/kapruka";
 import { detectLanguage, getLanguageInstruction } from "@/lib/i18n";
@@ -315,23 +316,36 @@ ${langInstruction}`;
 function getPastDateIssue(deliveryDate: string | undefined, todayISO: string): string | null {
   if (!deliveryDate) return null;
 
-  const parsed = parseLooseDate(deliveryDate);
-  if (!parsed) return null; // Can't confidently parse (e.g. "tomorrow", "next week") — don't block
-
   const today = new Date(todayISO + "T00:00:00");
+  const parsed = parseLooseDate(deliveryDate, today);
+  if (!parsed) return null; // Can't confidently parse — don't block
+
   if (parsed.getTime() < today.getTime()) {
     return `That date (${deliveryDate}) has already passed — today is ${todayISO}. Could you give me a valid upcoming delivery date?`;
   }
   return null;
 }
 
-/** Best-effort parse of YYYY/MM/DD, YYYY-MM-DD, or ISO date strings. Returns null if unparseable. */
-function parseLooseDate(value: string): Date | null {
-  const match = value.trim().match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
-  if (!match) return null;
-  const [, y, m, d] = match;
-  const date = new Date(`${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}T00:00:00`);
-  return isNaN(date.getTime()) ? null : date;
+/**
+ * Best-effort parse of a delivery date string, including natural language
+ * like "23rd June" or "next Tuesday" (via chrono-node), so the past-date
+ * backstop above isn't limited to numeric YYYY-MM-DD formats.
+ * `referenceDate` anchors relative phrases ("next Tuesday", "tomorrow").
+ * Returns null if unparseable.
+ */
+function parseLooseDate(value: string, referenceDate: Date): Date | null {
+  const trimmed = value.trim();
+
+  const numeric = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (numeric) {
+    const [, y, m, d] = numeric;
+    const date = new Date(`${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}T00:00:00`);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  const parsed = chrono.parseDate(trimmed, referenceDate, { forwardDate: true });
+  if (!parsed) return null;
+  return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
 }
 
 function extractSearchQuery(messages: { role: string; content: string }[]): string {

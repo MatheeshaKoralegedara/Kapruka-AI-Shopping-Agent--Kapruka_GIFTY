@@ -53,7 +53,13 @@ async function getSessionId(): Promise<string> {
   return cachedSessionId;
 }
 
-async function callMCP(method: string, params: Record<string, unknown> = {}) {
+const MAX_SESSION_RETRIES = 2;
+
+async function callMCP(
+  method: string,
+  params: Record<string, unknown> = {},
+  retriesLeft = MAX_SESSION_RETRIES
+) {
   const sessionId = await getSessionId();
 
   const body = {
@@ -77,12 +83,17 @@ async function callMCP(method: string, params: Record<string, unknown> = {}) {
   });
 
   if (res.status === 400 || res.status === 404) {
-    // Session may have expired — reset and retry once
+    // Session may have expired — reset and retry, up to MAX_SESSION_RETRIES times
     const errBody = await res.text().catch(() => "");
     if (errBody.toLowerCase().includes("session")) {
+      if (retriesLeft <= 0) {
+        throw new Error(
+          `MCP error: session kept expiring after ${MAX_SESSION_RETRIES} retries - ${errBody}`
+        );
+      }
       cachedSessionId = null;
       initPromise = null;
-      return callMCP(method, params);
+      return callMCP(method, params, retriesLeft - 1);
     }
     throw new Error(`MCP error: ${res.status} ${res.statusText} - ${errBody}`);
   }
@@ -203,6 +214,16 @@ export async function trackOrder(orderId: string) {
   }
 }
 
+// Deterministic string hash (FNV-1a) used only as a fallback product id
+function hashString(input: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
 // Normalize whatever shape MCP returns into our Product type
 function normalizeProducts(raw: unknown): import("../types").Product[] {
   if (!raw) return [];
@@ -216,13 +237,22 @@ function normalizeProducts(raw: unknown): import("../types").Product[] {
     ? obj.items
     : [];
 
-  return arr.map((p: Record<string, unknown>, i: number) => ({
-    id: String(p.id || p.product_id || i),
-    name: String(p.name || p.title || "Product"),
-    price: Number(p.price || p.unit_price || 0),
-    image: String(p.image || p.image_url || p.thumbnail || ""),
-    url: String(p.url || p.product_url || ""),
-    desc: String(p.description || p.short_description || ""),
-    category: String(p.category || ""),
-  }));
+  return arr.map((p: Record<string, unknown>) => {
+    const name = String(p.name || p.title || "Product");
+    const price = Number(p.price || p.unit_price || 0);
+    const url = String(p.url || p.product_url || "");
+    // Fall back to a hash of name+price+url (not array index) so two
+    // different ID-less products never collide and merge in the cart.
+    const fallbackId = `gen-${hashString(`${name}|${price}|${url}`)}`;
+
+    return {
+      id: String(p.id || p.product_id || fallbackId),
+      name,
+      price,
+      image: String(p.image || p.image_url || p.thumbnail || ""),
+      url,
+      desc: String(p.description || p.short_description || ""),
+      category: String(p.category || ""),
+    };
+  });
 }

@@ -8,6 +8,18 @@ interface OrderConfirmationProps {
   order: Order;
 }
 
+function isSafePayLink(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "https:" &&
+      (parsed.hostname === "kapruka.com" || parsed.hostname.endsWith(".kapruka.com"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function OrderConfirmation({ order }: OrderConfirmationProps) {
   const [expanded, setExpanded] = useState(false);
   const hasDetails =
@@ -17,6 +29,11 @@ export function OrderConfirmation({ order }: OrderConfirmationProps) {
     order.recipientPhone ||
     order.deliveryDate ||
     order.giftNote;
+
+  const safePayLink = isSafePayLink(order.payLink) ? order.payLink : null;
+  if (!safePayLink) {
+    console.warn("OrderConfirmation: blocked untrusted payLink", order.payLink);
+  }
 
   return (
     <motion.div
@@ -130,14 +147,16 @@ export function OrderConfirmation({ order }: OrderConfirmationProps) {
         )}
       </AnimatePresence>
 
-      <a
-        href={order.payLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="pay-btn"
-      >
-        Pay now →
-      </a>
+      {safePayLink && (
+        <a
+          href={safePayLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="pay-btn"
+        >
+          Pay now →
+        </a>
+      )}
 
       <style>{`
         .order-card {
